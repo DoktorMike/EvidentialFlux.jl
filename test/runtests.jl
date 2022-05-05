@@ -39,7 +39,6 @@ using Test
         # y = 1 * sin.(x[1, :]) .- 3 * sin.(x[2, :]) .+ 2 * cos.(x[3, :]) .+ randn(Float32, 91)
         y = 1 * x[1, :] .- 3 * x[2, :] .+ 2 * x[3, :] .+ randn(Float32, 91)
         #scatterplot(x[1, :], y, width = 90, height = 30)
-        #loss(y, ŷ) = sum(abs, y - ŷ)
         pars = Flux.params(m)
         opt = ADAMW(0.005)
 	trnlosses = zeros(Float32, 1000)
@@ -47,8 +46,8 @@ using Test
 		local trnloss
                 grads = Flux.gradient(pars) do
                         ŷ = m(x)
-                        γ = ŷ[1, :]
-                        trnloss = loss(y, γ)
+                        γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
+			trnloss = sum(nignll(y, γ, ν, α, β, 0.1, 1e-4))
                 end
 		trnlosses[i] = trnloss
                 # Test that we can update the weights based on gradients
