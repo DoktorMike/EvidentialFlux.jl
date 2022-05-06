@@ -59,7 +59,7 @@ using Test
 	#scatterplot(1:1000, trnlosses, width = 80)
 	@test trnlosses[10] > trnlosses[100] > trnlosses[300]
 
-	# Test the loss functions
+	# Test the nigloss and uncertainty function
 	ninp, nout = 3, 5
 	m = NIG(ninp => nout)
 	x = randn(Float32, 3, 10)
@@ -69,6 +69,9 @@ using Test
 	ν = ŷ[(nout+1):(nout*2), :]
 	α = ŷ[(nout*2+1):(nout*3), :]
 	β = ŷ[(nout*3+1):(nout*4), :]
-	nigloss(y, γ, ν, α, β, 0.1, 1e-4)
+	myloss = nigloss(y, γ, ν, α, β, 0.1, 1e-4)
+	@test size(myloss) == (nout, 10)
+	myuncert = uncertainty(ν, α, β)
+	@test size(myuncert) == size(myloss)
 
 end
