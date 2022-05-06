@@ -12,6 +12,9 @@ include("dense.jl")
 export NIG
 
 include("losses.jl")
-export nignll
+export nigloss
+
+include("utils.jl")
+export uncertainty
 
 end

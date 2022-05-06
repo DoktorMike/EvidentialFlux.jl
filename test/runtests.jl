@@ -47,7 +47,7 @@ using Test
                 grads = Flux.gradient(pars) do
                         ŷ = m(x)
                         γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
-			trnloss = sum(nignll(y, γ, ν, α, β, 0.1, 1e-4))
+			trnloss = sum(nigloss(y, γ, ν, α, β, 0.1, 1e-4))
                 end
 		trnlosses[i] = trnloss
                 # Test that we can update the weights based on gradients
@@ -56,7 +56,7 @@ using Test
 		#	println("Epoch $i, Loss: $trnloss")
 		#end
         end
-	#scatterplot(1:1000, trnlosses)
+	#scatterplot(1:1000, trnlosses, width = 80)
 	@test trnlosses[10] > trnlosses[100] > trnlosses[300]
 
 	# Test the loss functions
@@ -69,6 +69,6 @@ using Test
 	ν = ŷ[(nout+1):(nout*2), :]
 	α = ŷ[(nout*2+1):(nout*3), :]
 	β = ŷ[(nout*3+1):(nout*4), :]
-	nignll(y, γ, ν, α, β, 0.1, 1e-4)
+	nigloss(y, γ, ν, α, β, 0.1, 1e-4)
 
 end
