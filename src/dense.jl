@@ -56,3 +56,4 @@ function (a::NIG)(x::AbstractVecOrMat)
 end
 
 (a::NIG)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
+
