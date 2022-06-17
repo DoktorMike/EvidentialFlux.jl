@@ -57,3 +57,16 @@ end
 
 (a::NIG)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
 
+#function predict(m::NIG, x::AbstractVecOrMat)
+#	nout = Int(size(m.W, 1) / 4)
+#        o = m.W * x .+ m.b
+#        γ = o[1:nout, :]
+#	ν = o[(nout+1):(nout*2), :]
+#        ν = m.σ.(ν)
+#	α = o[(nout*2+1):(nout*3), :]
+#        α = m.σ.(α) .+ 1
+#	β = o[(nout*3+1):(nout*4), :]
+#        β = m.σ.(β)
+#        return γ, uncertainty(ν, α, β), uncertainty(α, β)
+#end
+

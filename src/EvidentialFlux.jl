@@ -6,8 +6,6 @@ using SpecialFunctions
 
 # Write your package code here.
 
-hello() = println("Hello from EvidentialFlux!")
-
 include("dense.jl")
 export NIG
 
@@ -16,5 +14,6 @@ export nigloss
 
 include("utils.jl")
 export uncertainty
+export predict
 
 end

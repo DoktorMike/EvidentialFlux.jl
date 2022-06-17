@@ -23,7 +23,7 @@ Predicts the output of the model m on the input x.
 function predict(m, x)
         ŷ = m(x)
         γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
-        γ, uncertainty(ν, α, β)
+        (pred=γ, eu=uncertainty(ν, α, β), au=uncertainty(α, β))
 end
 
 mae(y, ŷ) = Statistics.mean(abs.(y - ŷ))
@@ -52,7 +52,7 @@ end
 # The convergance plot shows the loss function converges to a local minimum
 scatterplot(1:epochs, trnlosses, width = 80)
 # And the MAE corresponds to the noise we added in the target
-ŷ, u = predict(m, x')
+ŷ, u, au = predict(m, x')
 println("MAE: $(mae(y, ŷ))")
 
 # Correlation plot confirms the fit
@@ -69,8 +69,9 @@ scatterplot!(p, x, y, marker = :x, color = :blue)
 ## Out of sample predictions
 
 x = Float32.(collect(0:0.1:3π));
-ŷ, u = predict(m, x');
+ŷ, u, au = predict(m, x');
 
 p = scatterplot(x, sin.(x), width = 80, height = 30, marker = "o");
 scatterplot!(p, x, ŷ, color = :red, marker = "x");
 scatterplot!(p, x, u)
+scatterplot!(p, x, au)
