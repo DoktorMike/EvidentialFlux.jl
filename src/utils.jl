@@ -3,7 +3,7 @@
     uncertainty(ν, α, β)
 
 Calculates the epistemic uncertainty of the predictions from the Normal Inverse Gamma (NIG) model.
-Given a ``NIG(γ, υ, α, β)`` distribution we can calculate the epistemic uncertainty as
+Given a ``\\text{N-}\\Gamma^{-1}(γ, υ, α, β)`` distribution we can calculate the epistemic uncertainty as
 
 ``Var[μ] = \\frac{β}{ν(α-1)}``
 
@@ -18,7 +18,7 @@ uncertainty(ν, α, β) = @. β / (ν * (α - 1))
     uncertainty(α, β)
 
 Calculates the aleatoric uncertainty of the predictions from the Normal Inverse Gamma (NIG) model.
-Given a ``NIG(γ, υ, α, β)`` distribution we can calculate the aleatoric uncertainty as
+Given a ``\\text{N-}\\Gamma^{-1}(γ, υ, α, β)`` distribution we can calculate the aleatoric uncertainty as
 
 ``\\mathbb{E}[σ^2] = \\frac{β}{(α-1)}``
 

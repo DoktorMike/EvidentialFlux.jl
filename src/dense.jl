@@ -1,5 +1,5 @@
 """
-    NIG(in => out, σ=NNlib.softplut; bias=true, init=Flux.glorot_uniform)
+    NIG(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
     NIG(W::AbstractMatrix, [bias, σ])
 
 Create a fully connected layer which implements the NormalInverseGamma Evidential distribution
