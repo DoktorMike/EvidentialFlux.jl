@@ -15,3 +15,4 @@ makedocs(
 #=deploydocs(
     repo = "<repository url>"
 )=#
+deploydocs(repo = "github.com/DoktorMike/EvidentialFlux.git")
