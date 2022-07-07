@@ -20,7 +20,7 @@ uncertainty(ν, α, β) = @. β / (ν * (α - 1))
 Calculates the aleatoric uncertainty of the predictions from the Normal Inverse Gamma (NIG) model.
 Given a ``NIG(γ, υ, α, β)`` distribution we can calculate the aleatoric uncertainty as
 
-``\\E[σ^2] = \\frac{β}{(α-1)}``
+``\\mathbb{E}[σ^2] = \\frac{β}{(α-1)}``
 
 # Arguments:
 - `α`: the α parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)

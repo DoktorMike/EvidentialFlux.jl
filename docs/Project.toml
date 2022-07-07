@@ -1,2 +1,4 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+EvidentialFlux = "c214720e-3c4f-4d89-8b85-b9ea3aac2a05"
+NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
