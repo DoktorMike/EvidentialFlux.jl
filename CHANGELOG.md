@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.1.1](https://github.com/DoktorMike/EvidentialFlux/compare/v1.1.0...v1.1.1) (2022-07-09)
+
+
+### Features
+
+* Added the evidence 🎓 function for the Deep Evidential Regression case. ([5f92f07](https://github.com/DoktorMike/EvidentialFlux/commit/5f92f07ea70d5f62efb5abb2b07b4ff5f88751fa))
+
+
+### Documentation
+
+* Added documentation workflow to repo. ([63051bd](https://github.com/DoktorMike/EvidentialFlux/commit/63051bd6117a6d26973439141b7330989df4890b))
+* Added some information in the README again. ([269fa89](https://github.com/DoktorMike/EvidentialFlux/commit/269fa89edf08e6f660c4d4c41e5d2c8f3cd63be8))
+* Added some information in the README again. ([50bae43](https://github.com/DoktorMike/EvidentialFlux/commit/50bae4399d921f76151323071f223dc3401115ff))
+* Fixed bug in badges. ([3597864](https://github.com/DoktorMike/EvidentialFlux/commit/35978640936bf00bcc669e5a7b70840756a8e713))
+* Rearranged order of the functions. ([da95c62](https://github.com/DoktorMike/EvidentialFlux/commit/da95c62381b64fe8b53223c4f0d15daee54cbc90))
+* Section about the foundations of DER. ([fee5f23](https://github.com/DoktorMike/EvidentialFlux/commit/fee5f23d5a898222c4376afe74bcadafb5f46a74))
+* Updated README with badge for documentation. ([2ecfbd9](https://github.com/DoktorMike/EvidentialFlux/commit/2ecfbd9b107c67bb38354ee51794f003ea4d9c8a))
+* Updated README with more badges. ([e9a5614](https://github.com/DoktorMike/EvidentialFlux/commit/e9a5614de5eae2850e77c0684938fcac11f00b4b))
+
 ## 1.1.0 (2022-07-07)
 
 
