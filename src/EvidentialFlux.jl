@@ -14,6 +14,7 @@ export nigloss
 
 include("utils.jl")
 export uncertainty
+export evidence
 export predict
 
 end

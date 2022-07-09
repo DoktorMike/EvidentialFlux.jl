@@ -63,6 +63,7 @@ Not yet implemented.
 NIG
 predict
 uncertainty
+evidence
 nigloss
 ```
 

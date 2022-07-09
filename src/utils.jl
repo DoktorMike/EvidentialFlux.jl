@@ -29,6 +29,18 @@ Given a ``\\text{N-}\\Gamma^{-1}(γ, υ, α, β)`` distribution we can calculate
 uncertainty(α, β) = @. β / (α - 1)
 
 """
+    evidence(ν, α)
+
+Returns the evidence for the data pushed through the NIG layer. In this setting one way of looking at the NIG
+distribution is as ν virtual observations governing the mean μ of the likelihood and α virtual observations governing the variance ``\sigma^2``. The evidence is then a sum of the virtual observations. Amini et. al. goes through this interpretation in their 2020 paper.
+
+# Arguments:
+- `ν`: the ν parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+- `α`: the α parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+"""
+evidence(ν, α) = @. 2ν + α
+
+"""
     predict(m, x)
 
 Returns the predictions along with the epistemic and aleatoric uncertainty.
