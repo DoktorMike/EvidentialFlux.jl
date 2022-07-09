@@ -60,10 +60,10 @@ Not yet implemented.
 ## Functions
 
 ```@docs
-uncertainty
-predict
-nigloss
 NIG
+predict
+uncertainty
+nigloss
 ```
 
 ## Index
