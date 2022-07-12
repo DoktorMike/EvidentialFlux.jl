@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.1.1...v1.2.0) (2022-07-12)
+
+
+### Features
+
+* Added the MultinomialDirichlet evidential distribution. ([7436f16](https://github.com/DoktorMike/EvidentialFlux.jl/commit/7436f16413d1a0806049b93cad9a0a4586c542ed))
+
+
+### Documentation
+
+* Made some comments in the example. ([e1f7d08](https://github.com/DoktorMike/EvidentialFlux.jl/commit/e1f7d083bed8ecdc82930737e75479f1e00512ea))
+* Updated badges in README. ([e2d9090](https://github.com/DoktorMike/EvidentialFlux.jl/commit/e2d9090c8ca5f27124b97e0238e8e5e6242cf4ea))
+* Updated examples for classification. ([daa32f4](https://github.com/DoktorMike/EvidentialFlux.jl/commit/daa32f4a2cfa6bb23e2bad55d9c23ea79c6f0006))
+
 ### [1.1.1](https://github.com/DoktorMike/EvidentialFlux/compare/v1.1.0...v1.1.1) (2022-07-09)
 
 
