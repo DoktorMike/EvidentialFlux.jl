@@ -8,9 +8,11 @@ using SpecialFunctions
 
 include("dense.jl")
 export NIG
+export DIR
 
 include("losses.jl")
 export nigloss
+export dirloss
 
 include("utils.jl")
 export uncertainty
