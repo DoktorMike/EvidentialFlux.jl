@@ -6,4 +6,9 @@
 
 This is a Julia implementation in Flux of the Evidential Deep Learning framework. It strives to estimate heteroskedastic aleatoric uncertainty as well as epistemic uncertainty along with every prediction made. All of it calculated in one glorious forward pass. Boom!
 
+
+## Classification
+
+![](images/threegaussians.png)
+
 More to come.
