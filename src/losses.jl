@@ -75,9 +75,3 @@ function dirloss(y, α, t)
     sum(loss .+ λₜ .* reg)
 end
 
-#y = Flux.onehotbatch(rand(Categorical([0.2, 0.2, 0.2, 0.2, 0.2]), 10), 1:5)
-#α = reshape(1:50, (5, 10))
-#S = sum(α, dims = 1)
-#p̂ = α ./ S
-#α̂ = @. y + (1 - y) * α
-#kl(α̂)
