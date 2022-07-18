@@ -55,7 +55,30 @@ as well as the epistemic uncertainty. Boom!
 
 ## Deep Evidential Classification
 
-Not yet implemented.
+We follow [^sensoy2018] in our implementation of Deep Evidential
+Classification. The neural network layer is implemented to output the
+``\alpha_k`` representing the parameters of a Dirichlet distribution. These
+parameters has the additional interpretation ``\alpha_k = e_k + 1`` where
+``e_k`` is the evidence for class ``k``. Further, it holds that ``e_k > 0``
+which is the reason for us modeling them with a softplus activation function. 
+
+Ok, so that's all well and good, but what's the point? Well, the point is that
+since we are now constructing a network layer that outputs evidence for each
+class we can apply Dempster-Shafer Theory (DST) to those outputs. DST is a
+generalization of the Bayesian framework of thought and works by assigning
+`belief mass` to states of interest. We can further concretize this notion by
+Subjective Logic (SL) which places a Dirichlet distribution over these belief
+masses. Belief masses are defined as ``b_k=e_k/S`` where ``e_k`` is the
+evidence of state ``k`` and ``S=\sum_i^K(e_i+1)``. Further, SL requires that
+``K+1`` states all sum up to 1. This practically means that
+``u+\sum_k^K~b_k=1`` where ``u`` represents the uncertainty of the possible K
+states, or the "I don't know." class.
+
+Now, since ``S=\sum_i^K(e_i+1)=S=\sum_i^K(\alpha_i)`` SL refers to ``S`` as the
+Dirichlet strength which is basically a sum of all the collected evidence in
+favor of the ``K`` outcomes. Consequently the uncertainty ``u=K/S`` becomes 1
+in case there is no evidence available. Therefor, ``u`` is a normalized
+quantity ranging between 0 and 1.
 
 ## Functions
 
@@ -75,4 +98,6 @@ nigloss
 ## References
 
 [^amini2020]: Amini, Alexander, Wilko Schwarting, Ava Soleimany, and Daniela Rus. “Deep Evidential Regression.” ArXiv:1910.02600 [Cs, Stat], November 24, 2020. http://arxiv.org/abs/1910.02600.
+
+[^sensoy2018]: Sensoy, Murat, Lance Kaplan, and Melih Kandemir. “Evidential Deep Learning to Quantify Classification Uncertainty.” Advances in Neural Information Processing Systems 31 (June 2018): 3179–89.
 

@@ -61,7 +61,7 @@ end
     DIR(in => out; bias=true, init=Flux.glorot_uniform)
     DIR(W::AbstractMatrix, [bias])
 
-A Linear layer with a softplys activation function in the end to implement the
+A Linear layer with a softplus activation function in the end to implement the
 Dirichlet evidential distribution. In this layer the number of output nodes
 should correspond to the number of classes you wish to model. This layer should
 be used to model a Multinomial likelihood with a Dirichlet prior. Thus the
