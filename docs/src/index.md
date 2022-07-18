@@ -83,6 +83,7 @@ quantity ranging between 0 and 1.
 ## Functions
 
 ```@docs
+DIR
 NIG
 predict
 uncertainty
