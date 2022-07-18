@@ -52,7 +52,7 @@ end
 
 function plotfituncert(m, x, y, wband = true)
     f = Figure()
-    Axis(f[1, 1])
+    Axis(f[1, 1], xlabel = "x", ylabel = "y")
     ŷ, u, au = predict_all(m, x')
     #u, au = u ./ maximum(u), au ./ maximum(au)
     #u, au = u ./ maximum(u) .* std(y), au ./ maximum(au) .* std(y)
@@ -121,7 +121,6 @@ plotfituncert(m, xood, f3(xood), true)
 GLMakie.ylims!(-200, 200)
 GLMakie.band!(4:0.01:6, -200, 200, color = "#8FBCBBB1")
 GLMakie.band!(-6:0.01:-4, -200, 200, color = "#8FBCBBB1")
-GLMakie.xlabel("hello")
 
 ## Out of sample predictions to the right
 xood = Float32.(0:0.2:6);

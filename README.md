@@ -17,6 +17,13 @@ for this example can be found in
 
 ![uncertainty](images/threegaussians.png)
 
+## Regression
+
+In the case of a regression problem we utilize the NormalInverseGamma distribution to model a type II likelihood
+function that then explicitely models the aleatoric and epistemic uncertainty.
+
+![uncertainty](images/cubefun.png)
+
 ## Summary
 
 Uncertainty is crucial for the deployment and utilization of robust machine
