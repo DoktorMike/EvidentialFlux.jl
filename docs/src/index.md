@@ -89,6 +89,7 @@ predict
 uncertainty
 evidence
 nigloss
+dirloss
 ```
 
 ## Index
