@@ -90,7 +90,7 @@ for epoch in 1:epochs
     grads = Flux.gradient(pars) do
         ŷ = m(x')
         γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
-        trnloss = Statistics.mean(nigloss2(y, γ, ν, α, β, 0.01, 1))
+        trnloss = Statistics.mean(nigloss2(y, γ, ν, α, β, 0.01, 2))
         trnloss
     end
     Flux.Optimise.update!(opt, pars, grads)
