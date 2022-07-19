@@ -3,7 +3,7 @@
 Evidential Deep Learning is a way to generate predictions and the uncertainty
 associated with them in one single forward pass. This is in stark contrast to
 traditional Bayesian neural networks which are typically based on Variational
-Inference, Markov Chain Monte Carlo, Monte Carlo Dropout or Ensembles. 
+Inference, Markov Chain Monte Carlo, Monte Carlo Dropout or Ensembles.
 
 ## Deep Evidential Regression
 
@@ -53,6 +53,14 @@ variable, namely ``\gamma,\nu,\alpha,\beta``. This means that in one forward
 pass we can estimate the prediction, the heteroskedastic aleatoric uncertainty
 as well as the epistemic uncertainty. Boom!
 
+### Theoretical justifications
+
+Although for the problems illustrated by Amini et. al., this approach seems to
+work well it has been shown in [^nis2022] that there are theoretical
+shortcomings regarding the expression of the aleatoric and epistemic
+uncertainty. They propose a correction of the loss, and the uncertainty
+calculations. In this package I have implemented both.
+
 ## Deep Evidential Classification
 
 We follow [^sensoy2018] in our implementation of Deep Evidential
@@ -87,8 +95,11 @@ DIR
 NIG
 predict
 uncertainty
+aleatoric
+epistemic
 evidence
 nigloss
+nigloss2
 dirloss
 ```
 
@@ -102,4 +113,6 @@ dirloss
 [^amini2020]: Amini, Alexander, Wilko Schwarting, Ava Soleimany, and Daniela Rus. “Deep Evidential Regression.” ArXiv:1910.02600 [Cs, Stat], November 24, 2020. http://arxiv.org/abs/1910.02600.
 
 [^sensoy2018]: Sensoy, Murat, Lance Kaplan, and Melih Kandemir. “Evidential Deep Learning to Quantify Classification Uncertainty.” Advances in Neural Information Processing Systems 31 (June 2018): 3179–89.
+
+[^nis2022]: Meinert, Nis, Jakob Gawlikowski, and Alexander Lavin. “The Unreasonable Effectiveness of Deep Evidential Regression.” arXiv, May 20, 2022. http://arxiv.org/abs/2205.10060.
 

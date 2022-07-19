@@ -16,11 +16,11 @@ function: μ and σ.
 """
 function nigloss(y, γ, ν, α, β, λ = 1, ϵ = 1e-4)
     # NLL: Calculate the negative log likelihood of the Normal-Inverse-Gamma distribution
-    twoβλ = 2 * β .* (1 .+ ν)
+    Ω = 2 * β .* (1 .+ ν)
     logγ = SpecialFunctions.loggamma
     nll = 0.5 * log.(π ./ ν) -
-          α .* log.(twoβλ) +
-          (α .+ 0.5) .* log.(ν .* (y - γ) .^ 2 + twoβλ) +
+          α .* log.(Ω) +
+          (α .+ 0.5) .* log.(ν .* (y - γ) .^ 2 + Ω) +
           logγ.(α) -
           logγ.(α .+ 0.5)
     # REG: Calculate regularizer based on absolute error of prediction
@@ -28,6 +28,44 @@ function nigloss(y, γ, ν, α, β, λ = 1, ϵ = 1e-4)
     reg = error .* (2 * ν + α)
     # Combine negative log likelihood and regularizer
     loss = nll + λ .* (reg .- ϵ)
+    loss
+end
+
+"""
+    nigloss2(y, γ, ν, α, β, λ = 1, p = 1)
+
+This is the corrected loss function for DER as recommended by Meinert, Nis,
+Jakob Gawlikowski, and Alexander Lavin. “The Unreasonable Effectiveness of Deep
+Evidential Regression.” arXiv, May 20, 2022. http://arxiv.org/abs/2205.10060.
+This is the standard loss function for Evidential Inference given a
+NormalInverseGamma posterior for the parameters of the gaussian likelihood
+function: μ and σ.
+
+# Arguments:
+- `y`: the targets whose shape should be (O, B)
+- `γ`: the γ parameter of the NIG distribution which corresponds to it's mean and whose shape should be (O, B)
+- `ν`: the ν parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+- `α`: the α parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+- `β`: the β parameter of the NIG distribution which relates to it's uncertainty and whose shape should be (O, B)
+- `λ`: the weight to put on the regularizer (default: 1)
+- `p`: the power which to raise the scaled absolute prediction error (default: 1)
+"""
+function nigloss2(y, γ, ν, α, β, λ = 1, p = 1)
+    # NLL: Calculate the negative log likelihood of the Normal-Inverse-Gamma distribution
+    Ω = 2 * β .* (1 .+ ν)
+    logγ = SpecialFunctions.loggamma
+    nll = 0.5 * log.(π ./ ν) -
+          α .* log.(Ω) +
+          (α .+ 0.5) .* log.(ν .* (y - γ) .^ 2 + Ω) +
+          logγ.(α) -
+          logγ.(α .+ 0.5)
+    # REG: Calculate regularizer based on absolute error of prediction
+    uₐ = aleatoric(ν, α, β)
+    error = (abs.(y - γ) ./ uₐ) .^ p
+    Φ = evidence(ν, α) # Total evidence
+    reg = error .* Φ
+    # Combine negative log likelihood and regularizer
+    loss = nll + λ * reg
     loss
 end
 

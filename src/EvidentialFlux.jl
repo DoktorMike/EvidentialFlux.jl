@@ -12,10 +12,13 @@ export DIR
 
 include("losses.jl")
 export nigloss
+export nigloss2
 export dirloss
 
 include("utils.jl")
 export uncertainty
+export aleatoric
+export epistemic
 export evidence
 export predict
 

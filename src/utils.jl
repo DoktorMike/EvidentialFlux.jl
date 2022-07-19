@@ -59,6 +59,33 @@ distribution is as ν virtual observations governing the mean μ of the likeliho
 evidence(ν, α) = @. 2ν + α
 
 """
+    aleatoric(ν, α, β)
+
+This is the aleatoric uncertainty as recommended by Meinert, Nis, Jakob
+Gawlikowski, and Alexander Lavin. “The Unreasonable Effectiveness of Deep
+Evidential Regression.” arXiv, May 20, 2022. http://arxiv.org/abs/2205.10060.
+This is precisely the ``σ_{St}`` from the Student T distribution.
+
+# Arguments:
+- `ν`: the ν parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+- `α`: the α parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+- `β`: the β parameter of the NIG distribution which relates to it's uncertainty and whose shape should be (O, B)
+"""
+aleatoric(ν, α, β) = @. (β * (1 + ν)) / (ν * α)
+
+"""
+    epistemic(ν)
+
+This is the epistemic uncertainty as recommended by Meinert, Nis, Jakob
+Gawlikowski, and Alexander Lavin. “The Unreasonable Effectiveness of Deep
+Evidential Regression.” arXiv, May 20, 2022. http://arxiv.org/abs/2205.10060. 
+
+# Arguments:
+- `ν`: the ν parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+"""
+epistemic(ν) = 1 ./ sqrt.(ν)
+
+"""
     predict(m, x)
 
 Returns the predictions along with the epistemic and aleatoric uncertainty.
