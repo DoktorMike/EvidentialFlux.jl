@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.2.0...v1.3.0) (2022-07-19)
+
+
+### Features
+
+* Implemented the DER correction 🥶 ([450a76f](https://github.com/DoktorMike/EvidentialFlux.jl/commit/450a76fc6cd8a55e916a5e4dbc4f791ad7e5efd6)), closes [#9](https://github.com/DoktorMike/EvidentialFlux.jl/issues/9)
+* Updated regression example to produce something more useful and more inline with the paper. ([8577d8e](https://github.com/DoktorMike/EvidentialFlux.jl/commit/8577d8e0a91f733ddda477d5877bb050a839182a))
+
+
+### Documentation
+
+* Added classification image to readme. ([9b3f64f](https://github.com/DoktorMike/EvidentialFlux.jl/commit/9b3f64fd71f0d49acbd3fdd1ca29271111275b24))
+* Added documentation of the dirloss function. ([e412f92](https://github.com/DoktorMike/EvidentialFlux.jl/commit/e412f92295c1f2acee2cae51a0e49ea855d6ab5d))
+* Added more text regarding the classification entry. ([afb03d1](https://github.com/DoktorMike/EvidentialFlux.jl/commit/afb03d15430806e86819c15a0e14321d934c58dc))
+* Added the documentation of the DIR layer. ([736ea62](https://github.com/DoktorMike/EvidentialFlux.jl/commit/736ea623910f5904b9e5d711df7f8456d54a53de))
+* Added the regression case to the README. ([5fb3060](https://github.com/DoktorMike/EvidentialFlux.jl/commit/5fb30608d00fe2155cee4b29853be032e61ca2f7))
+* Documented the Deep evidential classification. ([f33f872](https://github.com/DoktorMike/EvidentialFlux.jl/commit/f33f87215a45c3e6edcd528171f0ccda6a738c2d))
+* Updated the example for the second regression case to use a power of 2 in the loss. ([ec2026b](https://github.com/DoktorMike/EvidentialFlux.jl/commit/ec2026b8ad87b70a5d035e416285ec6fb73771f3))
+
 ## [1.2.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.1.1...v1.2.0) (2022-07-12)
 
 
