@@ -1,10 +1,28 @@
 # EvidentialFlux
 
+[![Documentation](https://github.com/DoktorMike/EvidentialFlux.jl/actions/workflows/documentation.yml/badge.svg)](https://github.com/DoktorMike/EvidentialFlux.jl/actions/workflows/documentation.yml)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://doktormike.github.io/EvidentialFlux.jl/stable)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://doktormike.github.io/EvidentialFlux.jl/dev)
 [![Documentation](https://github.com/DoktorMike/EvidentialFlux.jl/actions/workflows/documentation.yml/badge.svg)](https://github.com/DoktorMike/EvidentialFlux.jl/actions/workflows/documentation.yml)
 
-This is a Julia implementation in Flux of the Evidential Deep Learning framework. It strives to estimate heteroskedastic aleatoric uncertainty as well as epistemic uncertainty along with every prediction made. All of it calculated in one glorious forward pass. Boom!
+This is a Julia implementation in Flux of the Evidential Deep Learning
+framework. It strives to estimate heteroskedastic aleatoric uncertainty as well
+as epistemic uncertainty along with every prediction made. All of it calculated
+in one glorious forward pass. Boom!
+
+## Installing
+
+If you want bleeding edge you can install it directly from my repo like this:
+
+```julia
+using Pkg; Pkg.add(url="https://github.com/DoktorMike/EvidentialFlux.jl")
+```
+
+Otherwise just do
+
+```julia
+using Pkg; Pkg.add("EvidentialFlux.jl")
+```
 
 ## For the impatient
 
