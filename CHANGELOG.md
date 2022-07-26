@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.3.2](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.3.1...v1.3.2) (2022-07-26)
+
+
+### Documentation
+
+* Added a favicon as well. ([b516ea5](https://github.com/DoktorMike/EvidentialFlux.jl/commit/b516ea5b5a7588a960a241ca5f9043d449441fb3))
+* Made an EvidentialFlux logo based on the julia logo. :) ([5a66ab6](https://github.com/DoktorMike/EvidentialFlux.jl/commit/5a66ab672403171a0e71c26c2d7e92a004255a81))
+
+
+### Other
+
+* Broke out the negative log likelihood calculation from the losses. ([9e45c90](https://github.com/DoktorMike/EvidentialFlux.jl/commit/9e45c902facf2dfb16b6d8c8af11d85f0bdfbc80))
+* Fixing styling inconsistencies with scimlstyle. ([5259cd1](https://github.com/DoktorMike/EvidentialFlux.jl/commit/5259cd1ed8f8ebafdb91ab3a4c3b5ab6fe560d0c))
+
 ## [1.3.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.2.0...v1.3.0) (2022-07-19)
 
 
