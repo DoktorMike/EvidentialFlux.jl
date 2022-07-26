@@ -20,3 +20,5 @@ releasepatch:
 	perl -pi -e 's/(version = ")(\d+)\.(\d+)\.(\d+)/$1.$2.".".$3.".".($4+1)/ge' Project.toml
 	npx standard-version -r=patch
 
+format:
+	julia --project=. -e "using JuliaFormatter, EvidentialFlux; format(joinpath(dirname(pathof(EvidentialFlux)), \"..\"))"

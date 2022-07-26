@@ -5,7 +5,7 @@
     {"type": "chore", "hidden": true},
     {"type": "docs", "hidden": false, "section": "Documentation"},
     {"type": "style", "hidden": false, "section": "Other"},
-    {"type": "refactor", "hidden": true},
+    {"type": "refactor", "hidden": false, "section": "Other"},
     {"type": "perf", "hidden": true},
     {"type": "test", "hidden": true}
 ]

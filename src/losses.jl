@@ -1,4 +1,29 @@
 """
+    nllstudent(y, γ, ν, α, β)
+
+Returns the negative log likelihood of the StudentT distribution which in this
+case is the model evidence for a gaussian likelihood with a normal inverse
+gamma prior.
+
+# Arguments:
+- `y`: the targets whose shape should be (O, B)
+- `γ`: the γ parameter of the NIG distribution which corresponds to it's mean and whose shape should be (O, B)
+- `ν`: the ν parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+- `α`: the α parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+- `β`: the β parameter of the NIG distribution which relates to it's uncertainty and whose shape should be (O, B)
+"""
+function nllstudent(y, γ, ν, α, β)
+    Ω = 2 * β .* (1 .+ ν)
+    logγ = SpecialFunctions.loggamma
+    nll = 0.5 * log.(π ./ ν) -
+          α .* log.(Ω) +
+          (α .+ 0.5) .* log.(ν .* (y - γ) .^ 2 + Ω) +
+          logγ.(α) -
+          logγ.(α .+ 0.5)
+    nll
+end
+
+"""
     nigloss(y, γ, ν, α, β, λ = 1, ϵ = 0.0001)
 
 This is the standard loss function for Evidential Inference given a
@@ -15,14 +40,7 @@ function: μ and σ.
 - `ϵ`: the threshold for the regularizer (default: 0.0001)
 """
 function nigloss(y, γ, ν, α, β, λ = 1, ϵ = 1e-4)
-    # NLL: Calculate the negative log likelihood of the Normal-Inverse-Gamma distribution
-    Ω = 2 * β .* (1 .+ ν)
-    logγ = SpecialFunctions.loggamma
-    nll = 0.5 * log.(π ./ ν) -
-          α .* log.(Ω) +
-          (α .+ 0.5) .* log.(ν .* (y - γ) .^ 2 + Ω) +
-          logγ.(α) -
-          logγ.(α .+ 0.5)
+    nll = nllstudent(y, γ, ν, α, β)
     # REG: Calculate regularizer based on absolute error of prediction
     error = abs.(y - γ)
     Φ = evidence(ν, α) # Total evidence
@@ -52,14 +70,7 @@ function: μ and σ.
 - `p`: the power which to raise the scaled absolute prediction error (default: 1)
 """
 function nigloss2(y, γ, ν, α, β, λ = 1, p = 1)
-    # NLL: Calculate the negative log likelihood of the Normal-Inverse-Gamma distribution
-    Ω = 2 * β .* (1 .+ ν)
-    logγ = SpecialFunctions.loggamma
-    nll = 0.5 * log.(π ./ ν) -
-          α .* log.(Ω) +
-          (α .+ 0.5) .* log.(ν .* (y - γ) .^ 2 + Ω) +
-          logγ.(α) -
-          logγ.(α .+ 0.5)
+    nll = nllstudent(y, γ, ν, α, β)
     # REG: Calculate regularizer based on absolute error of prediction
     uₐ = aleatoric(ν, α, β)
     error = (abs.(y - γ) ./ uₐ) .^ p
