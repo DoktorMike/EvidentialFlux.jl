@@ -9,16 +9,13 @@ release:
 	npx standard-version
 
 releasemajor:
-	perl -pi -e 's/(version = ")(\d+)\.(\d+)\.(\d+)/$1.($2+1).".".$3.".".$4/ge' Project.toml
-	npx standard-version -r=major
+	bump.sh major
 
 releaseminor:
-	perl -pi -e 's/(version = ")(\d+)\.(\d+)\.(\d+)/$1.$2.".".($3+1).".".$4/ge' Project.toml
-	npx standard-version -r=minor
+	bump.sh minor
 
 releasepatch:
-	perl -pi -e 's/(version = ")(\d+)\.(\d+)\.(\d+)/$1.$2.".".$3.".".($4+1)/ge' Project.toml
-	npx standard-version -r=patch
+	bump.sh patch
 
 format:
 	julia --project=. -e "using JuliaFormatter, EvidentialFlux; format(joinpath(dirname(pathof(EvidentialFlux)), \"..\"))"
