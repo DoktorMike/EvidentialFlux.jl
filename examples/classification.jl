@@ -43,7 +43,6 @@ u = uncertainty(α̂)
 
 # Show epistemic uncertainty
 GLMakie.heatmap(-5:0.1:5, -5:0.1:5, (x, y) -> uncertainty(m(vcat(x, y)))[1])
-GLMakie.scatter!(X[1, y[1, :].==1], X[2, y[1, :].==1], color = :red)
-GLMakie.scatter!(X[1, y[2, :].==1], X[2, y[2, :].==1], color = :green)
-GLMakie.scatter!(X[1, y[3, :].==1], X[2, y[3, :].==1], color = :blue)
-
+GLMakie.scatter!(X[1, y[1, :] .== 1], X[2, y[1, :] .== 1], color = :red)
+GLMakie.scatter!(X[1, y[2, :] .== 1], X[2, y[2, :] .== 1], color = :green)
+GLMakie.scatter!(X[1, y[3, :] .== 1], X[2, y[3, :] .== 1], color = :blue)

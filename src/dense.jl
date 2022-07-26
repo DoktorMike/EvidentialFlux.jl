@@ -25,18 +25,18 @@ The same holds true for the `bias` vector.
 - `init`: The function to use to initialise the weight matrix.
 - `bias`: Whether to include a trainable bias vector.
 """
-struct NIG{F,M<:AbstractMatrix,B}
+struct NIG{F, M <: AbstractMatrix, B}
     W::M
     b::B
     σ::F
-    function NIG(W::M, b = true, σ::F = NNlib.softplus) where {M<:AbstractMatrix,F}
+    function NIG(W::M, b = true, σ::F = NNlib.softplus) where {M <: AbstractMatrix, F}
         b = Flux.create_bias(W, b, size(W, 1))
-        return new{F,M,typeof(b)}(W, b, σ)
+        return new{F, M, typeof(b)}(W, b, σ)
     end
 end
 
-function NIG((in, out)::Pair{<:Integer,<:Integer}, σ = NNlib.softplus;
-    init = Flux.glorot_uniform, bias = true)
+function NIG((in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+             init = Flux.glorot_uniform, bias = true)
     NIG(init(out * 4, in), bias, σ)
 end
 
@@ -46,11 +46,11 @@ function (a::NIG)(x::AbstractVecOrMat)
     nout = Int(size(a.W, 1) / 4)
     o = a.W * x .+ a.b
     γ = o[1:nout, :]
-    ν = o[(nout+1):(nout*2), :]
+    ν = o[(nout + 1):(nout * 2), :]
     ν = a.σ.(ν)
-    α = o[(nout*2+1):(nout*3), :]
+    α = o[(nout * 2 + 1):(nout * 3), :]
     α = a.σ.(α) .+ 1
-    β = o[(nout*3+1):(nout*4), :]
+    β = o[(nout * 3 + 1):(nout * 4), :]
     β = a.σ.(β)
     return vcat(γ, ν, α, β)
 end
@@ -87,16 +87,16 @@ The weight matrix and/or the bias vector (of length `out`) may also be provided 
 - `init`: The function to use to initialise the weight matrix.
 - `bias`: Whether to include a trainable bias vector.
 """
-struct DIR{M<:AbstractMatrix,B}
+struct DIR{M <: AbstractMatrix, B}
     W::M
     b::B
-    function DIR(W::M, b = true) where {M<:AbstractMatrix}
+    function DIR(W::M, b = true) where {M <: AbstractMatrix}
         b = Flux.create_bias(W, b, size(W, 1))
-        return new{M,typeof(b)}(W, b)
+        return new{M, typeof(b)}(W, b)
     end
 end
 
-function DIR((in, out)::Pair{<:Integer,<:Integer}; init = Flux.glorot_uniform, bias = true)
+function DIR((in, out)::Pair{<:Integer, <:Integer}; init = Flux.glorot_uniform, bias = true)
     DIR(init(out, in), bias)
 end
 

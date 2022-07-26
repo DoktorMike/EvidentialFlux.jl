@@ -4,12 +4,11 @@ using Flux.Optimise: AdamW, Adam
 using GLMakie
 using Statistics
 
-
 f1(x) = sin.(x)
 f2(x) = 0.01 * x .^ 3 .- 0.1 * x
 f3(x) = x .^ 3
 function gendata(id = 1)
-    x = Float32.(-4:0.05:4)
+    x = Float32.(-6:0.05:6)
     if id == 1
         y = f1(x) .+ 0.2 * randn(size(x))
     elseif id == 2
@@ -39,11 +38,13 @@ end
 function plotfituncert!(m, x, y, wband = true)
     ŷ, u, au = predict_all(m, x')
     #u, au = u ./ maximum(u), au ./ maximum(au)
-    u, au = u ./ maximum(u) .* std(y), au ./ maximum(au) .* std(y)
+    #u, au = u ./ maximum(u) .* std(y), au ./ maximum(au) .* std(y)
     GLMakie.scatter!(x, y, color = "#5E81AC")
     GLMakie.lines!(x, ŷ, color = "#BF616A", linewidth = 5)
     if wband == true
-        GLMakie.band!(x, ŷ + u, ŷ - u, color = "#5E81ACAC")
+        #GLMakie.band!(x, ŷ - u, ŷ + u, color = "#5E81ACAC")
+        GLMakie.band!(x, ŷ - u, ŷ + u, color = "#EBCB8BAC")
+        GLMakie.band!(x, ŷ - au, ŷ + au, color = "#A3BE8CAC")
     else
         GLMakie.scatter!(x, u, color = :yellow)
         GLMakie.scatter!(x, au, color = :green)
@@ -60,8 +61,8 @@ function plotfituncert(m, x, y, wband = true)
     GLMakie.lines!(x, ŷ, color = "#BF616A", linewidth = 5)
     if wband == true
         #GLMakie.band!(x, ŷ + u, ŷ - u, color = "#5E81ACAC")
-        GLMakie.band!(x, ŷ + u, ŷ - u, color = "#EBCB8BAC")
-        GLMakie.band!(x, ŷ + au, ŷ - au, color = "#A3BE8CAC")
+        GLMakie.band!(x, ŷ - u, ŷ + u, color = "#EBCB8BAC")
+        GLMakie.band!(x, ŷ - au, ŷ + au, color = "#A3BE8CAC")
     else
         GLMakie.scatter!(x, u, color = :yellow)
         GLMakie.scatter!(x, au, color = :green)
@@ -71,13 +72,14 @@ end
 
 mae(y, ŷ) = Statistics.mean(abs.(y - ŷ))
 
-x, y = gendata(3)
+x, y = gendata(2)
 GLMakie.scatter(x, y)
-GLMakie.lines!(x, f3(x))
+GLMakie.lines!(x, f2(x))
 
-epochs = 6000
+epochs = 10000
 lr = 0.0005
-m = Chain(Dense(1 => 100, relu), Dense(100 => 100, relu), Dense(100 => 100, relu), NIG(100 => 1))
+m = Chain(Dense(1 => 100, relu), Dense(100 => 100, relu),
+          NIG(100 => 1))
 #m(x')
 opt = AdamW(lr, (0.89, 0.995), 0.001)
 #opt = Flux.Optimiser(AdamW(lr), ClipValue(1e1))
@@ -90,14 +92,18 @@ for epoch in 1:epochs
     grads = Flux.gradient(pars) do
         ŷ = m(x')
         γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
-        trnloss = Statistics.mean(nigloss2(y, γ, ν, α, β, 0.01, 2))
+        trnloss = Statistics.mean(nigloss2(y, γ, ν, α, β, 1, 1))
         trnloss
     end
     Flux.Optimise.update!(opt, pars, grads)
     trnlosses[epoch] = trnloss
-    if epoch % 2000 == 0
+    if epoch % 100 == 0 || epoch < 10
         println("Epoch: $epoch, Loss: $trnloss")
-        plotfituncert!(m, x, f3(x), true)
+        empty!(f)
+        Axis(f[1, 1])
+        plotfituncert!(m, x, f2(x), true)
+        GLMakie.ylims!(-10, 10)
+        #readline()
     end
 end
 
@@ -105,6 +111,7 @@ end
 GLMakie.scatter(1:epochs, trnlosses)
 # And the MAE corresponds to the noise we added in the target
 ŷ, u, au = predict_all(m, x')
+
 u, au = u ./ maximum(u), au ./ maximum(au)
 println("MAE: $(mae(y, ŷ))")
 
@@ -113,21 +120,25 @@ GLMakie.scatter(y, ŷ)
 GLMakie.lines!(-2:0.01:2, -2:0.01:2)
 
 plotfituncert(m, x, y, true)
-GLMakie.ylims!(-100, 100)
+GLMakie.ylims!(-3, 3)
 
 ## Out of sample predictions to the left and right
-xood = Float32.(-6:0.2:6);
-plotfituncert(m, xood, f3(xood), true)
-GLMakie.ylims!(-200, 200)
-GLMakie.band!(4:0.01:6, -200, 200, color = "#8FBCBBB1")
-GLMakie.band!(-6:0.01:-4, -200, 200, color = "#8FBCBBB1")
+xood = Float32.(-9:0.2:9);
+plotfituncert(m, xood, f2(xood), true)
+GLMakie.ylims!(-3, 3)
+GLMakie.band!(6:0.01:9, -200, 200, color = "#8FBCBBB1")
+GLMakie.band!(-9:0.01:-6, -200, 200, color = "#8FBCBBB1")
+GLMakie.ylims!(-3, 3)
 
 ## Out of sample predictions to the right
-xood = Float32.(0:0.2:6);
-plotfituncert(m, xood, f3(xood), true)
-GLMakie.ylims!(-200, 200)
+xood = Float32.(0:0.2:9);
+plotfituncert(m, xood, f2(xood), true)
+GLMakie.ylims!(-20, 20)
 
 ## Out of sample predictions to the left
-xood = Float32.(-6:0.2:0);
-plotfituncert(m, xood, f3(xood), true)
-GLMakie.ylims!(-200, 200)
+xood = Float32.(-9:0.2:0);
+plotfituncert(m, xood, f2(xood), true)
+GLMakie.ylims!(-10, 10)
+
+using JuliaFormatter, EvidentialFlux
+format(joinpath(dirname(pathof(EvidentialFlux)), ".."))

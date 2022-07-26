@@ -84,7 +84,6 @@ function kl(α)
     kl
 end
 
-
 """
     dirloss(y, α, t)
 
@@ -112,4 +111,3 @@ function dirloss(y, α, t)
     #sum(loss .+ λₜ .* reg, dims = 2)
     sum(loss .+ λₜ .* reg)
 end
-

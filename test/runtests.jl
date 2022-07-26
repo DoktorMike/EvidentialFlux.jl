@@ -78,12 +78,11 @@ end
     y = randn(Float32, nout, 10) # Target (fake)
     ŷ = m(x)
     γ = ŷ[1:nout, :]
-    ν = ŷ[(nout+1):(nout*2), :]
-    α = ŷ[(nout*2+1):(nout*3), :]
-    β = ŷ[(nout*3+1):(nout*4), :]
+    ν = ŷ[(nout + 1):(nout * 2), :]
+    α = ŷ[(nout * 2 + 1):(nout * 3), :]
+    β = ŷ[(nout * 3 + 1):(nout * 4), :]
     myloss = nigloss(y, γ, ν, α, β, 0.1, 1e-4)
     @test size(myloss) == (nout, 10)
     myuncert = uncertainty(ν, α, β)
     @test size(myuncert) == size(myloss)
-
 end

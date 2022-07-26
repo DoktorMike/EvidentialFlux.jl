@@ -4,7 +4,6 @@ using Flux.Optimise: AdamW, Adam
 using GLMakie
 using Statistics
 
-
 f1(x) = sin.(x)
 f2(x) = 0.01 * x .^ 3 .- 0.1 * x
 f3(x) = x .^ 3
@@ -77,7 +76,8 @@ GLMakie.lines!(x, f3(x))
 
 epochs = 10000
 lr = 0.005
-m = Chain(Dense(1 => 100, relu), Dense(100 => 100, relu), Dense(100 => 100, relu), NIG(100 => 1))
+m = Chain(Dense(1 => 100, relu), Dense(100 => 100, relu), Dense(100 => 100, relu),
+          NIG(100 => 1))
 #m(x')
 opt = AdamW(lr, (0.89, 0.995), 0.001)
 #opt = Flux.Optimiser(AdamW(lr), ClipValue(1e1))
