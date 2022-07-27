@@ -140,5 +140,3 @@ xood = Float32.(-9:0.2:0);
 plotfituncert(m, xood, f2(xood), true)
 GLMakie.ylims!(-10, 10)
 
-using JuliaFormatter, EvidentialFlux
-format(joinpath(dirname(pathof(EvidentialFlux)), ".."))
