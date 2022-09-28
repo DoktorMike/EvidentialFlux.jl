@@ -93,7 +93,9 @@ Returns the predictions along with the epistemic and aleatoric uncertainty.
 - `m`: the model which has to have the last layer be Normal Inverse Gamma(NIG) layer
 - `x`: the input data which has to be given as an array or vector
 """
-predict(m, x) = predict(typeof(m.layers[end]), m, x)
+last_type(m::Chain) = last_type(m[end])
+last_type(m) = typeof(m)
+predict(m, x) = predict(last_type(m), m, x)
 
 function predict(::Type{<:NIG}, m, x)
     #(pred = γ, eu = uncertainty(ν, α, β), au = uncertainty(α, β))
