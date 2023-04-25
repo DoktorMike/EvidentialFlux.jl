@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.3.3](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.3.2...v1.3.3) (2023-04-25)
+
+
+### Other
+
+* Added automatic formatting check for SciML compliance. ([3fe21d8](https://github.com/DoktorMike/EvidentialFlux.jl/commit/3fe21d8a33f19ee8ab60c9def3a0893796fd7008))
+
+
+### Documentation
+
+* Added a badge for the style compliance check. ([8bdbee8](https://github.com/DoktorMike/EvidentialFlux.jl/commit/8bdbee89b947bc18101879c3ea159260fb316b2f))
+* Added a DOI Zenodo badge. ([ea3f035](https://github.com/DoktorMike/EvidentialFlux.jl/commit/ea3f0351703bb1977711e9975040142e0001b8a2))
+* small corrections ([708f4b1](https://github.com/DoktorMike/EvidentialFlux.jl/commit/708f4b13c6010db2cc68729781f806b43d926c0c))
+
 ### [1.3.2](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.3.1...v1.3.2) (2022-07-26)
 
 
