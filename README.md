@@ -70,8 +70,8 @@ for this example can be found in
 
 ## Regression
 
-In the case of a regression problem we utilize the NormalInverseGamma
-distribution to model a type II likelihood function that then explicitely
+In the case of a regression problem, we utilize the NormalInverseGamma
+distribution to model a type II likelihood function that then explicitly
 models the aleatoric and epistemic uncertainty. The code for the example
 producing the plot below can be found in
 [regression.jl](examples/regression.jl).
@@ -81,6 +81,6 @@ producing the plot below can be found in
 ## Summary
 
 Uncertainty is crucial for the deployment and utilization of robust machine
-learning in production. No model is perfect and each one of them have
-their own strengths and weaknesses, but as a minimum requirement we should all
+learning in production. No model is perfect and each one of them has
+strengths and weaknesses, but as a minimum requirement, we should all
 at least demand that our models report uncertainty in every prediction.
