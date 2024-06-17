@@ -14,7 +14,7 @@ The out `y` will be a vector  of length `out*4`, or a batch with
 The output will have applied the function `σ(y)` to each row/element of `y` except the first `out` ones.
 Keyword `bias=false` will switch off trainable bias for the layer.
 The initialisation of the weight matrix is `W = init(out*4, in)`, calling the function
-given to keyword `init`, with default [`glorot_uniform`](@doc Flux.glorot_uniform).
+given to keyword `init`, with default [`glorot_uniform`].
 The weight matrix and/or the bias vector (of length `out`) may also be provided explicitly.
 Remember that in this case the number of rows in the weight matrix `W` MUST be a multiple of 4.
 The same holds true for the `bias` vector.
@@ -79,7 +79,7 @@ The out `y` will be a vector  of length `out`, or a batch with
 The output will have applied the function `softplus(y)` to each row/element of `y`.
 Keyword `bias=false` will switch off trainable bias for the layer.
 The initialisation of the weight matrix is `W = init(out, in)`, calling the function
-given to keyword `init`, with default [`glorot_uniform`](@doc Flux.glorot_uniform).
+given to keyword `init`, with default [`glorot_uniform`].
 The weight matrix and/or the bias vector (of length `out`) may also be provided explicitly.
 
 # Arguments:
@@ -119,12 +119,12 @@ distribution whose forward pass is simply given by:
 
 The input `x` should be a vector of length `in`, or batch of vectors represented
 as an `in × N` matrix, or any array with `size(x,1) == in`.
-The out `y` will be a vector  of length `out*4`, or a batch with
-`size(y) == (out*4, size(x)[2:end]...)`
+The out `y` will be a vector  of length `out*2`, or a batch with
+`size(y) == (out*2, size(x)[2:end]...)`
 The output will have applied the function `σ(y)` to each row/element of `y` except the first `out` ones.
 Keyword `bias=false` will switch off trainable bias for the layer.
 The initialisation of the weight matrix is `W = init(out*4, in)`, calling the function
-given to keyword `init`, with default [`glorot_uniform`](@doc Flux.glorot_uniform).
+given to keyword `init`, with default `glorot_uniform`.
 The weight matrix and/or the bias vector (of length `out`) may also be provided explicitly.
 Remember that in this case the number of rows in the weight matrix `W` MUST be a multiple of 2.
 The same holds true for the `bias` vector.

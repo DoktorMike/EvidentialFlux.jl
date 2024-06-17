@@ -140,7 +140,8 @@ mveloss(y, μ, σ) = (1 / 2) * (((y - μ) .^ 2) ./ σ + log.(σ))
 """
     mveloss(y, μ, σ, β)
 
-DOCSTRING
+Calculates the Mean-Variance loss for a Normal distribution. This is merely the negative log likelihood.
+This loss should be used with the MVE network type.
 
 # Arguments:
 - `y`: targets
