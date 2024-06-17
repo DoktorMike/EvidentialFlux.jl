@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.4.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.3.3...v1.4.0) (2024-06-17)
+
+
+### Features
+
+* Implemented Mean-variance network and cleaned up the dependencies. ([448e865](https://github.com/DoktorMike/EvidentialFlux.jl/commit/448e865900420055573e442702135807eaddefdd))
+
 ### [1.3.3](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.3.2...v1.3.3) (2023-04-25)
 
 
