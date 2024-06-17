@@ -4,8 +4,6 @@ using Flux
 using NNlib
 using SpecialFunctions
 
-# Write your package code here.
-
 include("dense.jl")
 export NIG
 export DIR

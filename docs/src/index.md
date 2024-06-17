@@ -93,6 +93,7 @@ quantity ranging between 0 and 1.
 ```@docs
 DIR
 NIG
+MVE
 predict
 uncertainty
 aleatoric
@@ -101,6 +102,7 @@ evidence
 nigloss
 nigloss2
 dirloss
+mveloss
 ```
 
 ## Index
