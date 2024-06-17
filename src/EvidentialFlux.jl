@@ -9,11 +9,13 @@ using SpecialFunctions
 include("dense.jl")
 export NIG
 export DIR
+export MVE
 
 include("losses.jl")
 export nigloss
 export nigloss2
 export dirloss
+export mveloss
 
 include("utils.jl")
 export uncertainty

@@ -102,9 +102,16 @@ function predict(::Type{<:NIG}, m, x)
     nout = Int(size(m[end].W)[1] / 4)
     ŷ = m(x)
     γ, ν, α, β = ŷ[1:nout, :], ŷ[(nout + 1):(2 * nout), :],
-                 ŷ[(2 * nout + 1):(3 * nout), :], ŷ[(3 * nout + 1):(4 * nout), :]
+    ŷ[(2 * nout + 1):(3 * nout), :], ŷ[(3 * nout + 1):(4 * nout), :]
     #return γ, uncertainty(ν, α, β), uncertainty(α, β)
     γ, ν, α, β
+end
+
+function predict(::Type{<:MVE}, m, x)
+    nout = Int(size(m[end].W)[1] / 2)
+    ŷ = m(x)
+    μ, σ = ŷ[1:nout, :], ŷ[(nout + 1):(2 * nout), :]
+    μ, σ
 end
 
 function predict(::Type{<:DIR}, m, x)

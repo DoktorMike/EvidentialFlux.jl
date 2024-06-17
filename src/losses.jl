@@ -123,3 +123,29 @@ function dirloss(y, α, t)
     #sum(loss .+ λₜ .* reg, dims = 2)
     sum(loss .+ λₜ .* reg)
 end
+
+"""
+    mveloss(y, μ, σ)
+
+Calculates the Mean-Variance loss for a Normal distribution. This is merely the negative log likelihood.
+This loss should be used with the MVE network type.
+
+# Arguments:
+- `y`: targets
+- `μ`: the predicted mean
+- `σ`: the predicted variance
+"""
+mveloss(y, μ, σ) = (1 / 2) * (((y - μ) .^ 2) ./ σ + log.(σ))
+
+"""
+    mveloss(y, μ, σ, β)
+
+DOCSTRING
+
+# Arguments:
+- `y`: targets
+- `μ`: the predicted mean
+- `σ`: the predicted variance
+- `β`: used to increase or decrease the effect of the predicted variance on the loss
+"""
+mveloss(y, μ, σ, β) = mveloss(y, μ, σ) .* ignore_derivatives(σ) .^ β

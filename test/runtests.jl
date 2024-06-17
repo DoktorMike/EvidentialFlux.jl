@@ -14,7 +14,7 @@ using Test
     @test all(≥(1), ŷ)
 end
 
-@testset "EvidentialFlux.jl - Regression" begin
+@testset "EvidentialFlux.jl - NIG Regression" begin
     # Creating a model and a forward pass
 
     ninp, nout = 3, 5
@@ -85,4 +85,71 @@ end
     @test size(myloss) == (nout, 10)
     myuncert = uncertainty(ν, α, β)
     @test size(myuncert) == size(myloss)
+end
+
+@testset "EvidentialFlux.jl - MVE Regression" begin
+    # Creating a model and a forward pass
+
+    ninp, nout = 3, 5
+    m = MVE(ninp => nout)
+    x = randn(Float32, 3, 10)
+    ŷ = m(x)
+    @test size(ŷ) == (2 * nout, 10)
+    # The σ all have to be positive
+    @test ŷ[6:10, :] == abs.(ŷ[6:10, :])
+
+    # Testing backward pass
+    oldW = similar(m.W)
+    oldW .= m.W
+    loss(y, ŷ) = sum(abs, y - ŷ)
+    pars = Flux.params(m)
+    y = randn(Float32, nout, 10) # Target (fake)
+    grads = Flux.gradient(pars) do
+        ŷ = m(x)
+        γ = ŷ[1:nout, :]
+        loss(y, γ)
+    end
+    # Test that we can update the weights based on gradients
+    opt = Descent(0.1)
+    Flux.Optimise.update!(opt, pars, grads)
+    @test m.W != oldW
+
+    # Testing convergence
+    ninp, nout = 3, 1
+    m = MVE(ninp => nout)
+    x = Float32.(collect(1:0.1:10))
+    x = cat(x', x' .- 10, x' .+ 5, dims = 1)
+    # y = 1 * sin.(x[1, :]) .- 3 * sin.(x[2, :]) .+ 2 * cos.(x[3, :]) .+ randn(Float32, 91)
+    y = 1 * x[1, :] .- 3 * x[2, :] .+ 2 * x[3, :] .+ randn(Float32, 91)
+    #scatterplot(x[1, :], y, width = 90, height = 30)
+    pars = Flux.params(m)
+    opt = AdamW(0.005)
+    trnlosses = zeros(Float32, 1000)
+    for i in 1:1000
+        local trnloss
+        grads = Flux.gradient(pars) do
+            ŷ = m(x)
+            μ, σ = ŷ[1, :], ŷ[2, :]
+            trnloss = sum(mveloss(y, μ, σ))
+        end
+        trnlosses[i] = trnloss
+        # Test that we can update the weights based on gradients
+        Flux.Optimise.update!(opt, pars, grads)
+        #if i % 100 == 0 
+        #	println("Epoch $i, Loss: $trnloss")
+        #end
+    end
+    #scatterplot(1:1000, trnlosses, width = 80)
+    @test trnlosses[10] > trnlosses[100] > trnlosses[300]
+
+    # Test the nigloss and uncertainty function
+    ninp, nout = 3, 5
+    m = MVE(ninp => nout)
+    x = randn(Float32, 3, 10)
+    y = randn(Float32, nout, 10) # Target (fake)
+    ŷ = m(x)
+    μ = ŷ[1:nout, :]
+    σ = ŷ[(nout + 1):(nout * 2), :]
+    myloss = mveloss(y, μ, σ)
+    @test size(myloss) == (nout, 10)
 end

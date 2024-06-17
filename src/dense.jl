@@ -36,11 +36,11 @@ struct NIG{F, M <: AbstractMatrix, B}
 end
 
 function NIG((in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
-             init = Flux.glorot_uniform, bias = true)
+        init = Flux.glorot_uniform, bias = true)
     NIG(init(out * 4, in), bias, σ)
 end
 
-Flux.@functor NIG
+Flux.@layer NIG
 
 function (a::NIG)(x::AbstractVecOrMat)
     nout = Int(size(a.W, 1) / 4)
@@ -100,10 +100,64 @@ function DIR((in, out)::Pair{<:Integer, <:Integer}; init = Flux.glorot_uniform, 
     DIR(init(out, in), bias)
 end
 
-Flux.@functor DIR
+Flux.@layer DIR
 
 function (a::DIR)(x::AbstractVecOrMat)
     NNlib.softplus.(a.W * x .+ a.b) .+ 1
 end
 
 (a::DIR)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
+
+"""
+    MVE(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
+    MVE(W::AbstractMatrix, [bias, σ])
+
+Create a fully connected layer which implements the Mean-Variance Network which is just a Normal 
+distribution whose forward pass is simply given by:
+
+    y = W * x .+ bias
+
+The input `x` should be a vector of length `in`, or batch of vectors represented
+as an `in × N` matrix, or any array with `size(x,1) == in`.
+The out `y` will be a vector  of length `out*4`, or a batch with
+`size(y) == (out*4, size(x)[2:end]...)`
+The output will have applied the function `σ(y)` to each row/element of `y` except the first `out` ones.
+Keyword `bias=false` will switch off trainable bias for the layer.
+The initialisation of the weight matrix is `W = init(out*4, in)`, calling the function
+given to keyword `init`, with default [`glorot_uniform`](@doc Flux.glorot_uniform).
+The weight matrix and/or the bias vector (of length `out`) may also be provided explicitly.
+Remember that in this case the number of rows in the weight matrix `W` MUST be a multiple of 2.
+The same holds true for the `bias` vector.
+
+# Arguments:
+- `(in, out)`: number of input and output neurons
+- `σ`: The function to use to secure positive only outputs which defaults to the softplus function.
+- `init`: The function to use to initialise the weight matrix.
+- `bias`: Whether to include a trainable bias vector.
+"""
+struct MVE{F, M <: AbstractMatrix, B}
+    W::M
+    b::B
+    σ::F
+    function MVE(W::M, b = true, σ::F = NNlib.softplus) where {M <: AbstractMatrix, F}
+        b = Flux.create_bias(W, b, size(W, 1))
+        return new{F, M, typeof(b)}(W, b, σ)
+    end
+end
+
+function MVE(
+        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus; init = Flux.glorot_uniform, bias = true)
+    MVE(init(out * 2, in), bias, σ)
+end
+
+Flux.@layer MVE
+
+function (a::MVE)(x::AbstractVecOrMat)
+    nout = Int(size(a.W, 1) / 2)
+    o = a.W * x .+ a.b
+    μ = o[1:nout, :]
+    s = a.σ.(o[(nout + 1):(nout * 2), :])
+    return vcat(μ, s)
+end
+
+(a::MVE)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
