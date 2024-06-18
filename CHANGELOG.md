@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.5.1](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.5.0...v1.5.1) (2024-06-18)
+
+
+### Documentation
+
+* fixed the tag. ([4262fa3](https://github.com/DoktorMike/EvidentialFlux.jl/commit/4262fa397fcaeb6047e5d9b0e2f199b111c34a0e))
+
 ## [1.5.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.4.0...v1.5.0) (2024-06-18)
 
 
