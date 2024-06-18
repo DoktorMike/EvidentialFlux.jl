@@ -110,7 +110,6 @@ end
 
 """
     MVE(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
-    MVE(W::AbstractMatrix, [bias, σ])
 
 Create a fully connected layer which implements the Mean-Variance Network which is just a Normal 
 distribution whose forward pass is simply given by:
@@ -131,33 +130,24 @@ The same holds true for the `bias` vector.
 
 # Arguments:
 - `(in, out)`: number of input and output neurons
-- `σ`: The function to use to secure positive only outputs which defaults to the softplus function.
+- `σ`: The function to apply to the μ layers which defaults to the softplus.
 - `init`: The function to use to initialise the weight matrix.
 - `bias`: Whether to include a trainable bias vector.
 """
-struct MVE{F, M <: AbstractMatrix, B}
-    W::M
-    b::B
-    σ::F
-    function MVE(W::M, b = true, σ::F = NNlib.softplus) where {M <: AbstractMatrix, F}
-        b = Flux.create_bias(W, b, size(W, 1))
-        return new{F, M, typeof(b)}(W, b, σ)
-    end
+struct MVE{T <: Chain}
+    chain::T
 end
 
-function MVE(
-        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus; init = Flux.glorot_uniform, bias = true)
-    MVE(init(out * 2, in), bias, σ)
+function MVE((in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+        init = Flux.glorot_uniform, bias = true)
+    MVE(Chain(Parallel(vcat, μw = Dense(in => out, σ, bias = bias, init = init),
+        σw = Dense(in => out, NNlib.softplus, bias = bias, init = init))))
 end
 
 Flux.@layer MVE
 
 function (a::MVE)(x::AbstractVecOrMat)
-    nout = Int(size(a.W, 1) / 2)
-    o = a.W * x .+ a.b
-    μ = o[1:nout, :]
-    s = a.σ.(o[(nout + 1):(nout * 2), :])
-    return vcat(μ, s)
+    a.chain(x)
 end
 
 (a::MVE)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)

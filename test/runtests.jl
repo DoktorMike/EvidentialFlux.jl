@@ -99,8 +99,9 @@ end
     @test ŷ[6:10, :] == abs.(ŷ[6:10, :])
 
     # Testing backward pass
-    oldW = similar(m.W)
-    oldW .= m.W
+    W = m.chain.layers[1].layers[:μw].weight
+    oldW = similar(W)
+    oldW .= W
     loss(y, ŷ) = sum(abs, y - ŷ)
     pars = Flux.params(m)
     y = randn(Float32, nout, 10) # Target (fake)
@@ -112,7 +113,7 @@ end
     # Test that we can update the weights based on gradients
     opt = Descent(0.1)
     Flux.Optimise.update!(opt, pars, grads)
-    @test m.W != oldW
+    @test W != oldW
 
     # Testing convergence
     ninp, nout = 3, 1
