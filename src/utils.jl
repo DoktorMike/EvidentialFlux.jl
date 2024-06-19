@@ -108,8 +108,8 @@ function predict(::Type{<:NIG}, m, x)
 end
 
 function predict(::Type{<:MVE}, m, x)
-    nout = Int(size(m[end].W)[1] / 2)
     ŷ = m(x)
+    nout = Int(first(size(ŷ)) / 2)
     μ, σ = ŷ[1:nout, :], ŷ[(nout + 1):(2 * nout), :]
     μ, σ
 end
