@@ -87,7 +87,8 @@ epistemic(ν) = 1 ./ sqrt.(ν)
 """
     predict(m, x)
 
-Returns the predictions along with the epistemic and aleatoric uncertainty.
+Returns the predictions along with the available epistemic and aleatoric uncertainty.
+If applied to the MVE network you get a μ and σ as return values.
 
 # Arguments:
 - `m`: the model which has to have the last layer be Normal Inverse Gamma(NIG) layer
