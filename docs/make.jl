@@ -2,6 +2,7 @@ push!(LOAD_PATH, "../src/")
 
 using Documenter
 using EvidentialFlux
+using Flux
 
 makedocs(sitename = "EvidentialFlux",
     format = Documenter.HTML(),
