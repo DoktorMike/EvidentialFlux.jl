@@ -4,7 +4,7 @@ using Documenter
 using EvidentialFlux
 using Flux
 
-makedocs(sitename = "EvidentialFlux",
+makedocs(sitename = "EvidentialFlux", checkdocs = :exports,
     format = Documenter.HTML(),
     modules = [EvidentialFlux])
 

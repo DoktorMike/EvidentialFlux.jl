@@ -1,5 +1,8 @@
 # EvidentialFlux.jl
 
+```@contents
+```
+
 Evidential Deep Learning is a way to generate predictions and the uncertainty
 associated with them in one single forward pass. This is in stark contrast to
 traditional Bayesian neural networks which are typically based on Variational

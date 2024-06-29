@@ -14,6 +14,7 @@ export nigloss
 export nigloss2
 export dirloss
 export mveloss
+export nllstudent
 
 include("utils.jl")
 export uncertainty
