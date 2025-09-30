@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.5.3](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.5.2...v1.5.3) (2025-09-30)
+
+
+### Bug Fixes
+
+* finally fixed the damn documentation. ([a23251c](https://github.com/DoktorMike/EvidentialFlux.jl/commit/a23251c2844161a59876a6f506ef1916513980a1))
+
+
+### Documentation
+
+* clarified the predict function for MVE networks. ([4973a4c](https://github.com/DoktorMike/EvidentialFlux.jl/commit/4973a4caa5e79f3caea718f7c7f316ca3a54c6fa))
+
+
+### Other
+
+* 🦋 formatting according to runic. ([8e8888c](https://github.com/DoktorMike/EvidentialFlux.jl/commit/8e8888c1de60a76824f40c74c8b79207fdc66d17))
+
 ### [1.5.2](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.5.1...v1.5.2) (2024-06-19)
 
 
