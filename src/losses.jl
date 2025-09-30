@@ -16,11 +16,11 @@ function nllstudent(y, γ, ν, α, β)
     Ω = 2 * β .* (1 .+ ν)
     logγ = SpecialFunctions.loggamma
     nll = 0.5 * log.(π ./ ν) -
-          α .* log.(Ω) +
-          (α .+ 0.5) .* log.(ν .* (y - γ) .^ 2 + Ω) +
-          logγ.(α) -
-          logγ.(α .+ 0.5)
-    nll
+        α .* log.(Ω) +
+        (α .+ 0.5) .* log.(ν .* (y - γ) .^ 2 + Ω) +
+        logγ.(α) -
+        logγ.(α .+ 0.5)
+    return nll
 end
 
 """
@@ -39,7 +39,7 @@ function: μ and σ.
 - `λ`: the weight to put on the regularizer (default: 1)
 - `ϵ`: the threshold for the regularizer (default: 0.0001)
 """
-function nigloss(y, γ, ν, α, β, λ = 1, ϵ = 1e-4)
+function nigloss(y, γ, ν, α, β, λ = 1, ϵ = 1.0e-4)
     nll = nllstudent(y, γ, ν, α, β)
     # REG: Calculate regularizer based on absolute error of prediction
     error = abs.(y - γ)
@@ -47,7 +47,7 @@ function nigloss(y, γ, ν, α, β, λ = 1, ϵ = 1e-4)
     reg = error .* Φ
     # Combine negative log likelihood and regularizer
     loss = nll + λ .* (reg .- ϵ)
-    loss
+    return loss
 end
 
 """
@@ -78,7 +78,7 @@ function nigloss2(y, γ, ν, α, β, λ = 1, p = 1)
     reg = error .* Φ
     # Combine negative log likelihood and regularizer
     loss = nll + λ * reg
-    loss
+    return loss
 end
 
 # The α here is actually the α̃ which has scaled down evidence that is good.
@@ -93,7 +93,7 @@ function kl(α)
     A = lnΓ.(∑α) .- lnΓ(K) .- ∑lnΓα
     B = sum((α .- 1) .* (ψ.(α) .- ψ.(∑α)), dims = 1)
     kl = A + B
-    kl
+    return kl
 end
 
 """
@@ -121,7 +121,7 @@ function dirloss(y, α, t)
     reg = kl(α̂)
     # Total loss = likelihood + regularizer
     #sum(loss .+ λₜ .* reg, dims = 2)
-    sum(loss .+ λₜ .* reg)
+    return sum(loss .+ λₜ .* reg)
 end
 
 """

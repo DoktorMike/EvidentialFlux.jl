@@ -35,9 +35,11 @@ struct NIG{F, M <: AbstractMatrix, B}
     end
 end
 
-function NIG((in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
-        init = Flux.glorot_uniform, bias = true)
-    NIG(init(out * 4, in), bias, σ)
+function NIG(
+        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+        init = Flux.glorot_uniform, bias = true
+    )
+    return NIG(init(out * 4, in), bias, σ)
 end
 
 Flux.@layer NIG
@@ -97,13 +99,13 @@ struct DIR{M <: AbstractMatrix, B}
 end
 
 function DIR((in, out)::Pair{<:Integer, <:Integer}; init = Flux.glorot_uniform, bias = true)
-    DIR(init(out, in), bias)
+    return DIR(init(out, in), bias)
 end
 
 Flux.@layer DIR
 
 function (a::DIR)(x::AbstractVecOrMat)
-    NNlib.softplus.(a.W * x .+ a.b) .+ 1
+    return NNlib.softplus.(a.W * x .+ a.b) .+ 1
 end
 
 (a::DIR)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
@@ -138,16 +140,24 @@ struct MVE{T <: Chain}
     chain::T
 end
 
-function MVE((in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
-        init = Flux.glorot_uniform, bias = true)
-    MVE(Chain(Parallel(vcat, μw = Dense(in => out, σ, bias = bias, init = init),
-        σw = Dense(in => out, NNlib.softplus, bias = bias, init = init))))
+function MVE(
+        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+        init = Flux.glorot_uniform, bias = true
+    )
+    return MVE(
+        Chain(
+            Parallel(
+                vcat, μw = Dense(in => out, σ, bias = bias, init = init),
+                σw = Dense(in => out, NNlib.softplus, bias = bias, init = init)
+            )
+        )
+    )
 end
 
 Flux.@layer MVE
 
 function (a::MVE)(x::AbstractVecOrMat)
-    a.chain(x)
+    return a.chain(x)
 end
 
 (a::MVE)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
