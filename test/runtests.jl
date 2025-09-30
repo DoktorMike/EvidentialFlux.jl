@@ -59,12 +59,12 @@ end
         grads = Flux.gradient(pars) do
             ŷ = m(x)
             γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
-            trnloss = sum(nigloss(y, γ, ν, α, β, 0.1, 1e-4))
+            trnloss = sum(nigloss(y, γ, ν, α, β, 0.1, 1.0e-4))
         end
         trnlosses[i] = trnloss
         # Test that we can update the weights based on gradients
         Flux.Optimise.update!(opt, pars, grads)
-        #if i % 100 == 0 
+        #if i % 100 == 0
         #	println("Epoch $i, Loss: $trnloss")
         #end
     end
@@ -81,7 +81,7 @@ end
     ν = ŷ[(nout + 1):(nout * 2), :]
     α = ŷ[(nout * 2 + 1):(nout * 3), :]
     β = ŷ[(nout * 3 + 1):(nout * 4), :]
-    myloss = nigloss(y, γ, ν, α, β, 0.1, 1e-4)
+    myloss = nigloss(y, γ, ν, α, β, 0.1, 1.0e-4)
     @test size(myloss) == (nout, 10)
     myuncert = uncertainty(ν, α, β)
     @test size(myuncert) == size(myloss)
@@ -136,7 +136,7 @@ end
         trnlosses[i] = trnloss
         # Test that we can update the weights based on gradients
         Flux.Optimise.update!(opt, pars, grads)
-        #if i % 100 == 0 
+        #if i % 100 == 0
         #	println("Epoch $i, Loss: $trnloss")
         #end
     end
