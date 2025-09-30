@@ -47,7 +47,7 @@ end
         Flux.update!(opt_state, model, grads[1])
         push!(losses, loss)  # logging, outside gradient context
     end
-    @test losses[10] > losses[100] > losses[300]
+    @test losses[1] > losses[10] > losses[100] > losses[300]
 
     # Test the nigloss and uncertainty function
     ninp, nout = 3, 5
