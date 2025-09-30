@@ -7,7 +7,7 @@ using Flux
 # makedocs(sitename = "EvidentialFlux", checkdocs = :exports,
 #     format = Documenter.HTML(),
 #     modules = [EvidentialFlux])
-makedocs()
+makedocs(sitename = "EvidentialFlux")
 
 # Documenter can also automatically deploy documentation to gh-pages.
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
