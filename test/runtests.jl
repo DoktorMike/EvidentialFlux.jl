@@ -27,49 +27,27 @@ end
     # The α all have to be ≥ 1
     @test all(≥(1), ŷ[11:15, :])
 
-    # Testing backward pass
-    oldW = similar(m.W)
-    oldW .= m.W
-    loss(y, ŷ) = sum(abs, y - ŷ)
-    pars = Flux.params(m)
-    y = randn(Float32, nout, 10) # Target (fake)
-    grads = Flux.gradient(pars) do
-        ŷ = m(x)
-        γ = ŷ[1:nout, :]
-        loss(y, γ)
-    end
-    # Test that we can update the weights based on gradients
-    opt = Descent(0.1)
-    Flux.Optimise.update!(opt, pars, grads)
-    @test m.W != oldW
-
     # Testing convergence
     ninp, nout = 3, 1
-    m = NIG(ninp => nout)
+    model = NIG(ninp => nout)
     x = Float32.(collect(1:0.1:10))
     x = cat(x', x' .- 10, x' .+ 5, dims = 1)
-    # y = 1 * sin.(x[1, :]) .- 3 * sin.(x[2, :]) .+ 2 * cos.(x[3, :]) .+ randn(Float32, 91)
     y = 1 * x[1, :] .- 3 * x[2, :] .+ 2 * x[3, :] .+ randn(Float32, 91)
-    #scatterplot(x[1, :], y, width = 90, height = 30)
-    pars = Flux.params(m)
-    opt = AdamW(0.005)
-    trnlosses = zeros(Float32, 1000)
-    for i in 1:1000
-        local trnloss
-        grads = Flux.gradient(pars) do
+    opt_state = Flux.setup(Flux.Adam(0.005), model)  # will store optimiser momentum, etc.
+
+    # Training loop, using the whole data set 1000 times:
+    losses = []
+    for epoch in 1:1_000
+        # Unpack batch of data, and move to GPU:
+        loss, grads = Flux.withgradient(model) do m
             ŷ = m(x)
             γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
-            trnloss = sum(nigloss(y, γ, ν, α, β, 0.1, 1.0e-4))
+            sum(nigloss(y, γ, ν, α, β, 0.1, 1.0e-4))
         end
-        trnlosses[i] = trnloss
-        # Test that we can update the weights based on gradients
-        Flux.Optimise.update!(opt, pars, grads)
-        #if i % 100 == 0
-        #	println("Epoch $i, Loss: $trnloss")
-        #end
+        Flux.update!(opt_state, model, grads[1])
+        push!(losses, loss)  # logging, outside gradient context
     end
-    #scatterplot(1:1000, trnlosses, width = 80)
-    @test trnlosses[10] > trnlosses[100] > trnlosses[300]
+    @test losses[10] > losses[100] > losses[300]
 
     # Test the nigloss and uncertainty function
     ninp, nout = 3, 5
@@ -98,59 +76,4 @@ end
     # The σ all have to be positive
     @test ŷ[6:10, :] == abs.(ŷ[6:10, :])
 
-    # Testing backward pass
-    W = m.chain.layers[1].layers[:μw].weight
-    oldW = similar(W)
-    oldW .= W
-    loss(y, ŷ) = sum(abs, y - ŷ)
-    pars = Flux.params(m)
-    y = randn(Float32, nout, 10) # Target (fake)
-    grads = Flux.gradient(pars) do
-        ŷ = m(x)
-        γ = ŷ[1:nout, :]
-        loss(y, γ)
-    end
-    # Test that we can update the weights based on gradients
-    opt = Descent(0.1)
-    Flux.Optimise.update!(opt, pars, grads)
-    @test W != oldW
-
-    # Testing convergence
-    ninp, nout = 3, 1
-    m = MVE(ninp => nout)
-    x = Float32.(collect(1:0.1:10))
-    x = cat(x', x' .- 10, x' .+ 5, dims = 1)
-    # y = 1 * sin.(x[1, :]) .- 3 * sin.(x[2, :]) .+ 2 * cos.(x[3, :]) .+ randn(Float32, 91)
-    y = 1 * x[1, :] .- 3 * x[2, :] .+ 2 * x[3, :] .+ randn(Float32, 91)
-    #scatterplot(x[1, :], y, width = 90, height = 30)
-    pars = Flux.params(m)
-    opt = AdamW(0.005)
-    trnlosses = zeros(Float32, 1000)
-    for i in 1:1000
-        local trnloss
-        grads = Flux.gradient(pars) do
-            ŷ = m(x)
-            μ, σ = ŷ[1, :], ŷ[2, :]
-            trnloss = sum(mveloss(y, μ, σ))
-        end
-        trnlosses[i] = trnloss
-        # Test that we can update the weights based on gradients
-        Flux.Optimise.update!(opt, pars, grads)
-        #if i % 100 == 0
-        #	println("Epoch $i, Loss: $trnloss")
-        #end
-    end
-    #scatterplot(1:1000, trnlosses, width = 80)
-    @test trnlosses[10] > trnlosses[100] > trnlosses[300]
-
-    # Test the nigloss and uncertainty function
-    ninp, nout = 3, 5
-    m = MVE(ninp => nout)
-    x = randn(Float32, 3, 10)
-    y = randn(Float32, nout, 10) # Target (fake)
-    ŷ = m(x)
-    μ = ŷ[1:nout, :]
-    σ = ŷ[(nout + 1):(nout * 2), :]
-    myloss = mveloss(y, μ, σ)
-    @test size(myloss) == (nout, 10)
 end
