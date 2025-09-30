@@ -51,6 +51,27 @@ function nigloss(y, γ, ν, α, β, λ = 1, ϵ = 1.0e-4)
 end
 
 """
+Based on Ye, K., Chen, T., Wei, H. & Zhan, L. Uncertainty Regularized
+Evidential Regression. AAAI 38, 16460–16468 (2024). this loss function handles
+training in high uncertainty areas by making sure the gradients are not 0. The
+parameters are the same as in the other nigloss functions except that here we
+have a `λ₁` controlling the extent we want to weight the uncertainty loss.
+"""
+function nigloss3(y, γ, ν, α, β, λ = 1, λ₁ = 1, ϵ = 1.0e-4)
+    nll = nllstudent(y, γ, ν, α, β)
+    # REG: Calculate regularizer based on absolute error of prediction
+    error = abs.(y - γ)
+    Φ = evidence(ν, α) # Total evidence
+    reg = error .* Φ
+    # Uncertainty corrections
+    unc = error .* log.(exp.(α .- 1) .- 1)
+    # Combine negative log likelihood and regularizer and uncertainty correction
+    loss = nll + λ .* (reg .- ϵ) .- λ₁ .* unc
+    return loss
+end
+
+
+"""
     nigloss2(y, γ, ν, α, β, λ = 1, p = 1)
 
 This is the corrected loss function for DER as recommended by Meinert, Nis,
