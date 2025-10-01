@@ -3,8 +3,7 @@
 [![Documentation](https://github.com/DoktorMike/EvidentialFlux.jl/actions/workflows/documentation.yml/badge.svg)](https://github.com/DoktorMike/EvidentialFlux.jl/actions/workflows/documentation.yml)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://doktormike.github.io/EvidentialFlux.jl/stable)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://doktormike.github.io/EvidentialFlux.jl/dev)
-[![SciML Code Style](https://img.shields.io/static/v1?label=code%20style&message=SciML&color=9558b2&labelColor=389826)](https://github.com/SciML/SciMLStyle)
-[![format-check](https://github.com/DoktorMike/EvidentialFlux.jl/actions/workflows/FormatCheck.yml/badge.svg)](https://github.com/DoktorMike/EvidentialFlux.jl/actions/workflows/FormatCheck.yml)
+[![code style: runic](https://img.shields.io/badge/code_style-%E1%9A%B1%E1%9A%A2%E1%9A%BE%E1%9B%81%E1%9A%B2-black)](https://github.com/fredrikekre/Runic.jl)
 [![DOI](https://zenodo.org/badge/487830887.svg)](https://zenodo.org/badge/latestdoi/487830887)
 
 This is a Julia implementation in Flux of the Evidential Deep Learning
