@@ -12,6 +12,7 @@ export MVE
 include("losses.jl")
 export nigloss
 export nigloss2
+export nigloss3
 export dirloss
 export mveloss
 export nllstudent

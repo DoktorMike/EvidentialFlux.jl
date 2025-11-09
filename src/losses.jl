@@ -57,16 +57,16 @@ training in high uncertainty areas by making sure the gradients are not 0. The
 parameters are the same as in the other nigloss functions except that here we
 have a `λ₁` controlling the extent we want to weight the uncertainty loss.
 """
-function nigloss3(y, γ, ν, α, β, λ = 1, λ₁ = 1, ϵ = 1.0e-4)
+function nigloss3(y, γ, ν, α, β, λ = 1, λ₁ = 1)
     nll = nllstudent(y, γ, ν, α, β)
     # REG: Calculate regularizer based on absolute error of prediction
     error = abs.(y - γ)
     Φ = evidence(ν, α) # Total evidence
     reg = error .* Φ
     # Uncertainty corrections
-    unc = error .* log.(exp.(α .- 1) .- 1)
+    unc = .- error .* log.(exp.(α .- 1) .- 1)
     # Combine negative log likelihood and regularizer and uncertainty correction
-    loss = nll + λ .* (reg .- ϵ) .- λ₁ .* unc
+    loss = nll .+ λ .* reg .+ λ₁ .* unc
     return loss
 end
 

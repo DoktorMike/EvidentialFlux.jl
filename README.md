@@ -19,11 +19,13 @@ If you want bleeding edge you can install it directly from my repo like this:
 using Pkg; Pkg.add(url="https://github.com/DoktorMike/EvidentialFlux.jl")
 ```
 
-Otherwise just do
+The package is not registered so unfortunately
 
 ```julia
 using Pkg; Pkg.add("EvidentialFlux.jl")
 ```
+
+will not work.
 
 ## For the impatient
 
@@ -34,27 +36,52 @@ elaborate example have a look in the examples folder.
 ```julia
 using Flux
 using EvidentialFlux
+using Statistics
 
-x = Float32.(-4:0.1:4)
-y = x .^3 .+ randn(Float32, length(x)) .* 3
+xtrn = Float32.(-4:0.1:4)
+ytrn = xtrn .^3 .+ randn(Float32, length(xtrn)) .* 3
+xtst = vcat(Float32.(-6:0.1:-4), Float32.(4:0.1:6))
+ytst = xtst .^3 .+ randn(Float32, length(xtst)) .* 3
 
-lr = 0.0005
-m = Chain(Dense(1 => 100, relu), Dense(100 => 100, relu), Dense(100 => 100, relu), NIG(100 => 1))
-opt = AdamW(lr, (0.89, 0.995), 0.001)
-pars = Flux.params(m)
-for epoch in 1:500
-    grads = Flux.gradient(pars) do
-        ŷ = m(x') 
+fig = Figure()
+ax = Axis(fig[1,1])
+
+lr = 0.001
+model = Chain(Dense(1 => 100, relu), Dense(100 => 100, relu), Dense(100 => 100, relu), NIG(100 => 1))
+opt_state = Flux.setup(Flux.AdamW(lr), model)  # will store optimiser momentum, etc.
+losses = []
+for epoch in 1:3000
+    loss, grads = Flux.withgradient(model) do m
+        ŷ = m(xtrn')
         γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
-        trnloss = Statistics.mean(nigloss2(y, γ, ν, α, β, 0.01, 2))
-        trnloss
+        # Statistics.mean(nigloss3(y, γ, ν, α, β, 1, 1))
+        # Statistics.mean(nigloss2(ytrn, γ, ν, α, β, 0.001, 2))
+        Statistics.mean(nigloss(ytrn, γ, ν, α, β, 0.001))
     end
-    Flux.Optimise.update!(opt, pars, grads)
+    Flux.update!(opt_state, model, grads[1])
+    push!(losses, loss)
 end
 
-γ, ν, α, β = predict(m, x)
-eu = epistemic(ν)
-au = aleatoric(ν, α, β)
+function plotprediction()
+    x = vcat(xtrn, xtst)
+    y = vcat(ytrn, ytst)
+    inds = sortperm(x)
+    x = x[inds]
+    y = y[inds]
+    γ, ν, α, β = predict(model, x')
+    eu = epistemic(ν)
+    au = aleatoric(ν, α, β)
+    # Plot it
+    empty!(ax)
+    scatter!(ax, x, y)
+    scatter!(ax, x, γ[1,:])
+    band!(ax, x, γ[1,:] - eu[1,:], γ[1,:] + eu[1,:], alpha=0.2)
+    band!(ax, x, γ[1,:] - au[1,:], γ[1,:] + au[1,:], alpha=0.2)
+    ylims!(ax, -220,220)
+    vlines!(ax, [-4,4])
+end
+
+
 ```
 
 ## Classification
