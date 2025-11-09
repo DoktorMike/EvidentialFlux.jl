@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.6.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.5.3...v1.6.0) (2025-11-09)
+
+
+### Features
+
+* added new losses for regression. ([b0805be](https://github.com/DoktorMike/EvidentialFlux.jl/commit/b0805be43bc5c21c63dcd329593376e75095975a))
+* added the uncertainty corrected loss for DER. ([326ca81](https://github.com/DoktorMike/EvidentialFlux.jl/commit/326ca8121e0587ce795929ab618cbd8f91ca1f61))
+
+
+### Documentation
+
+* 📛 badges addition for new formatter. ([82aec5c](https://github.com/DoktorMike/EvidentialFlux.jl/commit/82aec5c04e8b8c53b43ed3c3d5c840ec03b4f42a))
+
 ### [1.5.3](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.5.2...v1.5.3) (2025-09-30)
 
 
