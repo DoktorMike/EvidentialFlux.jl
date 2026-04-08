@@ -6,103 +6,125 @@
 [![code style: runic](https://img.shields.io/badge/code_style-%E1%9A%B1%E1%9A%A2%E1%9A%BE%E1%9B%81%E1%9A%B2-black)](https://github.com/fredrikekre/Runic.jl)
 [![DOI](https://zenodo.org/badge/487830887.svg)](https://zenodo.org/badge/latestdoi/487830887)
 
-This is a Julia implementation in Flux of the Evidential Deep Learning
-framework. It strives to estimate heteroskedastic aleatoric uncertainty as well
-as epistemic uncertainty along with every prediction made. All of it calculated
-in one glorious forward pass. Boom!
+A Julia/Flux implementation of the Evidential Deep Learning framework. Estimate
+heteroskedastic aleatoric and epistemic uncertainty in a single forward pass.
 
 ## Installing
-
-If you want bleeding edge you can install it directly from my repo like this:
 
 ```julia
 using Pkg; Pkg.add(url="https://github.com/DoktorMike/EvidentialFlux.jl")
 ```
 
-The package is not registered so unfortunately
+## Features
+
+EvidentialFlux provides three output layer types, each suited to a different
+modeling scenario:
+
+| Layer | Use case | Output | Uncertainty |
+|-------|----------|--------|-------------|
+| `NIG(in => out)` | Regression | γ, ν, α, β (4 × out) | Aleatoric + epistemic |
+| `DIR(in => out)` | Classification | Dirichlet concentrations (out) | Epistemic |
+| `MVE(in => out)` | Regression | μ, σ (2 × out) | Aleatoric |
+
+### Loss functions
+
+| Function | Description |
+|----------|-------------|
+| `nigloss(y, γ, ν, α, β, λ, ϵ)` | Standard evidential regression loss (Amini et al. 2020) |
+| `nigloss2(y, γ, ν, α, β, λ, p)` | Corrected DER loss (Meinert et al. 2022) |
+| `nigloss3(y, γ, ν, α, β, λ, λ₁)` | Uncertainty regularized loss (Ye et al. 2024) |
+| `dirloss(y, α, t)` | Dirichlet classification loss with KL regularization |
+| `mveloss(y, μ, σ)` | Gaussian negative log-likelihood |
+| `nllstudent(y, γ, ν, α, β)` | Student-T negative log-likelihood |
+
+### Utilities
+
+| Function | Description |
+|----------|-------------|
+| `predict(model, x)` | Unified prediction dispatching on the last layer type |
+| `splitnig(y)` | Split concatenated NIG output into (γ, ν, α, β) |
+| `uncertainty(ν, α, β)` | Epistemic uncertainty: β / (ν(α-1)) |
+| `uncertainty(α, β)` | Aleatoric uncertainty: β / (α-1) |
+| `uncertainty(α)` | DIR epistemic uncertainty: K / Σα |
+| `epistemic(ν)` | Simplified epistemic: 1/√ν |
+| `aleatoric(ν, α, β)` | Student-T std: β(1+ν) / (να) |
+| `evidence(ν, α)` | NIG total evidence: 2ν + α |
+| `evidence(α)` | DIR evidence: α - 1 |
+
+## Quick start
+
+### Evidential regression (NIG)
 
 ```julia
-using Pkg; Pkg.add("EvidentialFlux.jl")
-```
+using Flux, EvidentialFlux, Statistics
 
-will not work.
+x = Float32.(-4:0.1:4)
+y = x .^ 3 .+ randn(Float32, length(x)) .* 3
 
-## For the impatient
+model = Chain(Dense(1 => 100, relu), Dense(100 => 100, relu), NIG(100 => 1))
+opt_state = Flux.setup(AdamW(1e-3), model)
 
-Below is an example of how to train Deep Evidential Regression model, extract
-the predictions as well as the epistemic and aleatoric uncertainty. For a more
-elaborate example have a look in the examples folder.
-
-```julia
-using Flux
-using EvidentialFlux
-using Statistics
-
-xtrn = Float32.(-4:0.1:4)
-ytrn = xtrn .^3 .+ randn(Float32, length(xtrn)) .* 3
-xtst = vcat(Float32.(-6:0.1:-4), Float32.(4:0.1:6))
-ytst = xtst .^3 .+ randn(Float32, length(xtst)) .* 3
-
-fig = Figure()
-ax = Axis(fig[1,1])
-
-lr = 0.001
-model = Chain(Dense(1 => 100, relu), Dense(100 => 100, relu), Dense(100 => 100, relu), NIG(100 => 1))
-opt_state = Flux.setup(Flux.AdamW(lr), model)  # will store optimiser momentum, etc.
-losses = []
 for epoch in 1:3000
     loss, grads = Flux.withgradient(model) do m
-        ŷ = m(xtrn')
-        γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
-        # Statistics.mean(nigloss3(y, γ, ν, α, β, 1, 1))
-        # Statistics.mean(nigloss2(ytrn, γ, ν, α, β, 0.001, 2))
-        Statistics.mean(nigloss(ytrn, γ, ν, α, β, 0.001))
+        γ, ν, α, β = splitnig(m(x'))
+        mean(nigloss(y, γ, ν, α, β, 0.001))
     end
     Flux.update!(opt_state, model, grads[1])
-    push!(losses, loss)
 end
 
-function plotprediction()
-    x = vcat(xtrn, xtst)
-    y = vcat(ytrn, ytst)
-    inds = sortperm(x)
-    x = x[inds]
-    y = y[inds]
-    γ, ν, α, β = predict(model, x')
-    eu = epistemic(ν)
-    au = aleatoric(ν, α, β)
-    # Plot it
-    empty!(ax)
-    scatter!(ax, x, y)
-    scatter!(ax, x, γ[1,:])
-    band!(ax, x, γ[1,:] - eu[1,:], γ[1,:] + eu[1,:], alpha=0.2)
-    band!(ax, x, γ[1,:] - au[1,:], γ[1,:] + au[1,:], alpha=0.2)
-    ylims!(ax, -220,220)
-    vlines!(ax, [-4,4])
+# Extract predictions and uncertainty
+γ, ν, α, β = predict(model, x')
+eu = epistemic(ν)
+au = aleatoric(ν, α, β)
+```
+
+### Mean-variance estimation (MVE)
+
+```julia
+model = Chain(Dense(1 => 100, relu), Dense(100 => 100, relu), MVE(100 => 1))
+opt_state = Flux.setup(AdamW(1e-3), model)
+
+for epoch in 1:3000
+    loss, grads = Flux.withgradient(model) do m
+        μ, σ = predict(m, x')
+        mean(mveloss(y, μ, σ))
+    end
+    Flux.update!(opt_state, model, grads[1])
 end
-
-
 ```
 
 ## Classification
 
-Deep evidential modeling works for classification as well as for regression. In
-the plot below you can see the epistemic uncertainty as a consequence of
-position in the plot. The task is to separate three Gaussians in 2D. The code
-for this example can be found in
+Deep evidential modeling works for classification as well. The plot below shows
+epistemic uncertainty when separating three Gaussians in 2D. See
 [classification.jl](examples/classification.jl).
 
 ![uncertainty](images/threegaussians.png)
 
 ## Regression
 
-In the case of a regression problem, we utilize the NormalInverseGamma
-distribution to model a type II likelihood function that then explicitly
-models the aleatoric and epistemic uncertainty. The code for the example
-producing the plot below can be found in
+For regression, the NormalInverseGamma distribution models a type II likelihood
+that explicitly captures aleatoric and epistemic uncertainty. See
 [regression.jl](examples/regression.jl).
 
 ![uncertainty](images/cubefun.png)
+
+## Examples
+
+The [examples/](examples/) folder contains complete working examples:
+
+- [regression.jl](examples/regression.jl) -- NIG with `nigloss`
+- [regression2.jl](examples/regression2.jl) -- NIG with `nigloss2` (corrected DER)
+- [regression3.jl](examples/regression3.jl) -- NIG with LayerNorm and evidence tracking
+- [regression4.jl](examples/regression4.jl) -- MVE with parameter freezing/thawing
+- [classification.jl](examples/classification.jl) -- DIR for multi-class classification
+
+## References
+
+- Amini, A., Schwarting, W., Soleimany, A. & Rus, D. Deep Evidential Regression. NeurIPS (2020).
+- Meinert, N., Gawlikowski, J. & Lavin, A. The Unreasonable Effectiveness of Deep Evidential Regression. arXiv (2022).
+- Ye, K., Chen, T., Wei, H. & Zhan, L. Uncertainty Regularized Evidential Regression. AAAI 38 (2024).
+- Sensoy, M., Kaplan, L. & Kandemir, M. Evidential Deep Learning to Quantify Classification Uncertainty. NeurIPS (2018).
 
 ## Summary
 
