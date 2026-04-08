@@ -1,4 +1,12 @@
 """
+    _reshape_call(a, x::AbstractArray)
+
+Internal helper to handle higher-dimensional (3D+) array inputs by reshaping
+to a matrix, applying the layer, and reshaping back.
+"""
+_reshape_call(a, x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
+
+"""
     NIG(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
     NIG(W::AbstractMatrix, [bias, σ])
 
@@ -45,7 +53,7 @@ end
 Flux.@layer NIG
 
 function (a::NIG)(x::AbstractVecOrMat)
-    nout = Int(size(a.W, 1) / 4)
+    nout = size(a.W, 1) ÷ 4
     o = a.W * x .+ a.b
     γ = o[1:nout, :]
     ν = o[(nout + 1):(nout * 2), :]
@@ -57,7 +65,7 @@ function (a::NIG)(x::AbstractVecOrMat)
     return vcat(γ, ν, α, β)
 end
 
-(a::NIG)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
+(a::NIG)(x::AbstractArray) = _reshape_call(a, x)
 
 """
     DIR(in => out; bias=true, init=Flux.glorot_uniform)
@@ -108,7 +116,7 @@ function (a::DIR)(x::AbstractVecOrMat)
     return NNlib.softplus.(a.W * x .+ a.b) .+ 1
 end
 
-(a::DIR)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
+(a::DIR)(x::AbstractArray) = _reshape_call(a, x)
 
 """
     MVE(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
@@ -124,7 +132,7 @@ The out `y` will be a vector  of length `out*2`, or a batch with
 `size(y) == (out*2, size(x)[2:end]...)`
 The output will have applied the function `σ(y)` to each row/element of `y` except the first `out` ones.
 Keyword `bias=false` will switch off trainable bias for the layer.
-The initialisation of the weight matrix is `W = init(out*4, in)`, calling the function
+The initialisation of the weight matrix is `W = init(out*2, in)`, calling the function
 given to keyword `init`, with default `glorot_uniform`.
 The weight matrix and/or the bias vector (of length `out`) may also be provided explicitly.
 Remember that in this case the number of rows in the weight matrix `W` MUST be a multiple of 2.
@@ -160,4 +168,4 @@ function (a::MVE)(x::AbstractVecOrMat)
     return a.chain(x)
 end
 
-(a::MVE)(x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
+(a::MVE)(x::AbstractArray) = _reshape_call(a, x)

@@ -24,6 +24,19 @@ function nllstudent(y, γ, ν, α, β)
 end
 
 """
+    _nig_nll_reg(y, γ, ν, α, β)
+
+Internal helper that computes the shared components of the NIG loss functions:
+the negative log likelihood, absolute prediction error, and evidence regularizer.
+"""
+function _nig_nll_reg(y, γ, ν, α, β)
+    nll = nllstudent(y, γ, ν, α, β)
+    error = abs.(y - γ)
+    reg = error .* evidence(ν, α)
+    return nll, error, reg
+end
+
+"""
     nigloss(y, γ, ν, α, β, λ = 1, ϵ = 0.0001)
 
 This is the standard loss function for Evidential Inference given a
@@ -40,14 +53,8 @@ function: μ and σ.
 - `ϵ`: the threshold for the regularizer (default: 0.0001)
 """
 function nigloss(y, γ, ν, α, β, λ = 1, ϵ = 1.0e-4)
-    nll = nllstudent(y, γ, ν, α, β)
-    # REG: Calculate regularizer based on absolute error of prediction
-    error = abs.(y - γ)
-    Φ = evidence(ν, α) # Total evidence
-    reg = error .* Φ
-    # Combine negative log likelihood and regularizer
-    loss = nll + λ .* (reg .- ϵ)
-    return loss
+    nll, _, reg = _nig_nll_reg(y, γ, ν, α, β)
+    return nll + λ .* (reg .- ϵ)
 end
 
 """
@@ -58,16 +65,9 @@ parameters are the same as in the other nigloss functions except that here we
 have a `λ₁` controlling the extent we want to weight the uncertainty loss.
 """
 function nigloss3(y, γ, ν, α, β, λ = 1, λ₁ = 1)
-    nll = nllstudent(y, γ, ν, α, β)
-    # REG: Calculate regularizer based on absolute error of prediction
-    error = abs.(y - γ)
-    Φ = evidence(ν, α) # Total evidence
-    reg = error .* Φ
-    # Uncertainty corrections
+    nll, error, reg = _nig_nll_reg(y, γ, ν, α, β)
     unc = .- error .* log.(exp.(α .- 1) .- 1)
-    # Combine negative log likelihood and regularizer and uncertainty correction
-    loss = nll .+ λ .* reg .+ λ₁ .* unc
-    return loss
+    return nll .+ λ .* reg .+ λ₁ .* unc
 end
 
 

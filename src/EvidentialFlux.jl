@@ -1,6 +1,7 @@
 module EvidentialFlux
 
 using Flux
+using Flux: ignore_derivatives
 using NNlib
 using SpecialFunctions
 
@@ -18,6 +19,7 @@ export mveloss
 export nllstudent
 
 include("utils.jl")
+export splitnig
 export uncertainty
 export aleatoric
 export epistemic

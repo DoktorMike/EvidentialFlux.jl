@@ -1,4 +1,26 @@
 """
+    splitnig(y)
+
+Splits the concatenated output of a NIG layer into its four components: γ, ν, α, β.
+The input `y` should have shape `(nout*4, batch...)` where `nout` is the number of
+output neurons.
+
+# Arguments:
+- `y`: the concatenated NIG output with shape `(nout*4, batch...)`
+
+# Returns:
+- `(γ, ν, α, β)`: tuple of arrays each with shape `(nout, batch...)`
+"""
+function splitnig(y)
+    nout = size(y, 1) ÷ 4
+    γ = y[1:nout, :]
+    ν = y[(nout + 1):(2 * nout), :]
+    α = y[(2 * nout + 1):(3 * nout), :]
+    β = y[(3 * nout + 1):(4 * nout), :]
+    return γ, ν, α, β
+end
+
+"""
     uncertainty(ν, α, β)
 
 Calculates the epistemic uncertainty of the predictions from the Normal Inverse Gamma (NIG) model.
@@ -77,7 +99,7 @@ aleatoric(ν, α, β) = @. (β * (1 + ν)) / (ν * α)
 
 This is the epistemic uncertainty as recommended by Meinert, Nis, Jakob
 Gawlikowski, and Alexander Lavin. 'The Unreasonable Effectiveness of Deep
-Evidential Regression.' arXiv, May 20, 2022. http://arxiv.org/abs/2205.10060. 
+Evidential Regression.' arXiv, May 20, 2022. http://arxiv.org/abs/2205.10060.
 
 # Arguments:
 - `ν`: the ν parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
@@ -99,19 +121,13 @@ last_type(m::Chain) = last_type(m[end])
 last_type(m) = typeof(m)
 
 function predict(::Type{<:NIG}, m, x)
-    #(pred = γ, eu = uncertainty(ν, α, β), au = uncertainty(α, β))
-    nout = Int(size(m[end].W)[1] / 4)
-    ŷ = m(x)
-    γ, ν, α, β = ŷ[1:nout, :], ŷ[(nout + 1):(2 * nout), :],
-        ŷ[(2 * nout + 1):(3 * nout), :], ŷ[(3 * nout + 1):(4 * nout), :]
-    #return γ, uncertainty(ν, α, β), uncertainty(α, β)
-    return γ, ν, α, β
+    return splitnig(m(x))
 end
 
 function predict(::Type{<:MVE}, m, x)
-    ŷ = m(x)
-    nout = Int(first(size(ŷ)) / 2)
-    μ, σ = ŷ[1:nout, :], ŷ[(nout + 1):(2 * nout), :]
+    ŷ = m(x)
+    nout = first(size(ŷ)) ÷ 2
+    μ, σ = ŷ[1:nout, :], ŷ[(nout + 1):(2 * nout), :]
     return μ, σ
 end
 
