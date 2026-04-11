@@ -80,6 +80,53 @@ end
 (a::NIG)(x::AbstractArray) = _reshape_call(a, x)
 
 """
+    PG(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
+    PG(W::AbstractMatrix, [bias, σ])
+
+Create a fully connected layer which implements a Poisson-Gamma evidential model
+for count regression. Places a Gamma(α, β) prior over the Poisson rate parameter λ,
+yielding a Negative Binomial marginal likelihood.
+
+The output has shape `(out*2, batch...)` containing `[α, β]` stacked vertically,
+where both α and β are passed through `σ` to ensure positivity.
+
+Use with `pgloss` for training and `splitpg` / `split_params(PG, y)` to
+decompose the output. The expected count is `E[λ] = α/β`.
+
+# Arguments:
+- `(in, out)`: number of input features and output count targets
+- `σ`: activation ensuring positivity (default: softplus)
+- `init`: weight initialisation function (default: `glorot_uniform`)
+- `bias`: whether to include a trainable bias vector
+"""
+struct PG{F, M <: AbstractMatrix, B} <: AbstractEvidentialLayer
+    W::M
+    b::B
+    σ::F
+    function PG(W::M, b = true, σ::F = NNlib.softplus) where {M <: AbstractMatrix, F}
+        b = Flux.create_bias(W, b, size(W, 1))
+        return new{F, M, typeof(b)}(W, b, σ)
+    end
+end
+
+function PG(
+        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+        init = Flux.glorot_uniform, bias = true
+    )
+    return PG(init(out * 2, in), bias, σ)
+end
+
+Flux.@layer PG
+
+function (a::PG)(x::AbstractVecOrMat)
+    o = a.W * x .+ a.b
+    α_raw, β_raw = _split_equal(o, 2)
+    return vcat(a.σ.(α_raw), a.σ.(β_raw))
+end
+
+(a::PG)(x::AbstractArray) = _reshape_call(a, x)
+
+"""
     DIR(in => out; bias=true, init=Flux.glorot_uniform)
     DIR(W::AbstractMatrix, [bias])
 

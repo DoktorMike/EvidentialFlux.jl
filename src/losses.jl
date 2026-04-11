@@ -236,3 +236,42 @@ function fdirloss(y, α, p, τ)
     brier = sum((y .- p) .^ 2, dims = 1)                               # (1, B)
     return evid .+ brier
 end
+
+"""
+    nllpg(y, α, β)
+
+Negative log-likelihood of the Negative Binomial marginal obtained by
+integrating out the Poisson rate λ ~ Gamma(α, β):
+
+    p(y|α,β) = Γ(y+α) / [Γ(y+1)·Γ(α)] · βᵅ / (β+1)^(y+α)
+
+Use this with the `PG` layer for evidential count regression.
+
+# Arguments:
+- `y`: non-negative count targets, shape `(O, B)`
+- `α`: Gamma shape parameter (> 0), shape `(O, B)`
+- `β`: Gamma rate parameter (> 0), shape `(O, B)`
+"""
+function nllpg(y, α, β)
+    logΓ = SpecialFunctions.loggamma
+    return logΓ.(y .+ 1) .+ logΓ.(α) .- logΓ.(y .+ α) .- α .* log.(β) .+ (y .+ α) .* log.(β .+ 1)
+end
+
+"""
+    pgloss(y, α, β, λ = 1)
+
+Loss for Poisson-Gamma evidential count regression. Combines the Negative
+Binomial NLL (from `nllpg`) with a regularizer that penalizes high confidence
+(large α) when the predicted rate `α/β` is far from the observed count.
+
+# Arguments:
+- `y`: non-negative count targets, shape `(O, B)`
+- `α`: Gamma shape parameter (> 0) from a PG layer, shape `(O, B)`
+- `β`: Gamma rate parameter (> 0) from a PG layer, shape `(O, B)`
+- `λ`: regularization weight (default: 1)
+"""
+function pgloss(y, α, β, λ = 1)
+    nll = nllpg(y, α, β)
+    reg = abs.(y .- α ./ β) .* α
+    return nll .+ λ .* reg
+end

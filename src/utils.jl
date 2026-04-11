@@ -11,6 +11,10 @@ Split MVE layer output into a NamedTuple `(μ, σ)`.
 
 Wrap DIR layer output into a NamedTuple `(α,)`.
 
+    split_params(::Type{<:PG}, y)
+
+Split PG layer output into a NamedTuple `(α, β)`.
+
     split_params(::Type{<:FDIR}, y)
 
 Split FDIR layer output into a NamedTuple `(α, p, τ)`.
@@ -19,6 +23,9 @@ where `K = (size(y,1) - 1) ÷ 2`.
 """
 split_params(::Type{<:NIG}, y) = let (γ, ν, α, β) = _split_equal(y, 4)
     (γ = γ, ν = ν, α = α, β = β)
+end
+split_params(::Type{<:PG}, y) = let (α, β) = _split_equal(y, 2)
+    (α = α, β = β)
 end
 split_params(::Type{<:MVE}, y) = let (μ, σ) = _split_equal(y, 2)
     (μ = μ, σ = σ)
@@ -75,6 +82,20 @@ The input `y` should have shape `(K*2 + 1, batch...)` where `K` is the number of
 - `(α, p, τ)`: tuple where α and p have shape `(K, batch...)` and τ has shape `(1, batch...)`
 """
 splitfdir(y) = let r = split_params(FDIR, y); (r.α, r.p, r.τ) end
+
+"""
+    splitpg(y)
+
+Splits the concatenated output of a PG layer into its two components: α, β.
+The input `y` should have shape `(nout*2, batch...)`.
+
+# Arguments:
+- `y`: the concatenated PG output with shape `(nout*2, batch...)`
+
+# Returns:
+- `(α, β)`: tuple of arrays each with shape `(nout, batch...)`
+"""
+splitpg(y) = let p = split_params(PG, y); (p.α, p.β) end
 
 """
     uncertainty(ν, α, β)

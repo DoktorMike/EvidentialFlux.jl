@@ -29,6 +29,13 @@ using Test
     @test ŷ_mve isa CuArray
     @test all(>(0), Array(ŷ_mve[3:4, :]))  # σ > 0
 
+    # PG
+    m_pg = PG(3 => 2) |> gpu
+    ŷ_pg = m_pg(x)
+    @test size(ŷ_pg) == (4, 10)
+    @test ŷ_pg isa CuArray
+    @test all(>(0), Array(ŷ_pg))  # α, β both > 0
+
     # FDIR
     m_fdir = FDIR(3 => 4) |> gpu
     ŷ_fdir = m_fdir(x)
@@ -48,6 +55,12 @@ end
     p = split_params(NIG, m_nig(x))
     @test p.γ isa CuArray
     @test size(p.γ) == (2, 10)
+
+    # PG
+    m_pg = PG(3 => 2) |> gpu
+    q_pg = split_params(PG, m_pg(x))
+    @test q_pg.α isa CuArray
+    @test size(q_pg.α) == (2, 10)
 
     # MVE
     m_mve = MVE(3 => 2) |> gpu
@@ -84,6 +97,13 @@ end
     α = predict(m_dir, x)
     @test α isa CuArray
     @test size(α) == (4, 5)
+
+    # PG predict
+    m_pg = Chain(Dense(3 => 10, relu), PG(10 => 2)) |> gpu
+    r_pg = predict(m_pg, x)
+    @test r_pg isa NamedTuple{(:α, :β)}
+    @test r_pg.α isa CuArray
+    @test size(r_pg.α) == (2, 5)
 
     # FDIR predict
     m_fdir = Chain(Dense(3 => 10, relu), FDIR(10 => 4)) |> gpu
@@ -146,6 +166,14 @@ end
     @test size(fl) == (1, 5)
     @test all(isfinite, Array(fl))
 
+    # pgloss
+    y_counts = cu(Float32.([0 1 3 2 5; 2 0 1 4 3; 1 2 0 3 1]))
+    α_pg = CUDA.rand(Float32, nout, batch) .+ 0.5f0
+    β_pg = CUDA.rand(Float32, nout, batch) .+ 0.5f0
+    pl = pgloss(y_counts, α_pg, β_pg)
+    @test size(pl) == (nout, batch)
+    @test all(isfinite, Array(pl))
+
     # mveloss
     μ = CUDA.randn(Float32, nout, batch)
     σ = CUDA.rand(Float32, nout, batch) .+ 0.1f0
@@ -199,6 +227,16 @@ end
     @test isfinite(loss_d2)
     @test !isnothing(grads_d2[1])
 
+    # pgloss
+    y_counts = cu(Float32.([0 1 3 2 5; 2 0 1 4 3]))
+    m_pg = Chain(Dense(3 => 10, relu), PG(10 => 2)) |> gpu
+    loss_pg, grads_pg = Flux.withgradient(m_pg) do m
+        α, β = splitpg(m(x))
+        sum(pgloss(y_counts, α, β))
+    end
+    @test isfinite(loss_pg)
+    @test !isnothing(grads_pg[1])
+
     # fdirloss
     y_oh_fd = cu(Float32.([1 0 1 0 0; 0 1 0 1 1]))
     m_fdir = Chain(Dense(3 => 10, relu), FDIR(10 => 2)) |> gpu
@@ -239,6 +277,12 @@ end
     m_mve = MVE(3 => 2)
     ŷ_cpu = m_mve(x_cpu)
     ŷ_gpu = (m_mve |> gpu)(x_gpu)
+    @test Array(ŷ_gpu) ≈ ŷ_cpu atol = 1.0f-5
+
+    # PG
+    m_pg = PG(3 => 2)
+    ŷ_cpu = m_pg(x_cpu)
+    ŷ_gpu = (m_pg |> gpu)(x_gpu)
     @test Array(ŷ_gpu) ≈ ŷ_cpu atol = 1.0f-5
 
     # FDIR

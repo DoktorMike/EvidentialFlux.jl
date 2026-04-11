@@ -7,6 +7,7 @@ using Test
     @test DIR <: AbstractEvidentialLayer
     @test MVE <: AbstractEvidentialLayer
     @test FDIR <: AbstractEvidentialLayer
+    @test PG <: AbstractEvidentialLayer
 end
 
 @testset "EvidentialFlux.jl - Classification" begin
@@ -68,6 +69,19 @@ end
     @test ŷ[6:10, :] == abs.(ŷ[6:10, :])
 end
 
+@testset "EvidentialFlux.jl - PG Count Regression" begin
+    ninp, nout = 3, 5
+    m = PG(ninp => nout)
+    x = randn(Float32, 3, 10)
+    ŷ = m(x)
+    @test size(ŷ) == (2 * nout, 10)
+    α, β = splitpg(ŷ)
+    @test all(>(0), α)
+    @test all(>(0), β)
+    @test size(α) == (nout, 10)
+    @test size(β) == (nout, 10)
+end
+
 @testset "EvidentialFlux.jl - FDIR Classification" begin
     ninp, nclasses = 3, 5
     m = FDIR(ninp => nclasses)
@@ -118,6 +132,16 @@ end
     # round-trip: vcat of parts equals original
     @test vcat(p.γ, p.ν, p.α, p.β) == y_nig
 
+    # PG split_params returns NamedTuple
+    α_pg = 2 * ones(Float32, nout, batch)
+    β_pg = 3 * ones(Float32, nout, batch)
+    y_pg = vcat(α_pg, β_pg)
+    q_pg = split_params(PG, y_pg)
+    @test q_pg isa NamedTuple{(:α, :β)}
+    @test q_pg.α == α_pg
+    @test q_pg.β == β_pg
+    @test vcat(q_pg.α, q_pg.β) == y_pg
+
     # MVE split_params returns NamedTuple
     μ = ones(Float32, nout, batch)
     σ = 2 * ones(Float32, nout, batch)
@@ -160,6 +184,16 @@ end
     @test τ2 == τ
 end
 
+@testset "splitpg" begin
+    nout, batch = 3, 5
+    α = 2 * ones(Float32, nout, batch)
+    β = 3 * ones(Float32, nout, batch)
+    y = vcat(α, β)
+    α2, β2 = splitpg(y)
+    @test α2 == α
+    @test β2 == β
+end
+
 @testset "splitmve" begin
     nout, batch = 3, 5
     μ = ones(Float32, nout, batch)
@@ -175,6 +209,7 @@ end
     @test size(NIG(3 => 2; bias = false)(randn(Float32, 3, 5))) == (8, 5)
     @test size(DIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (2, 5)
     @test size(MVE(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
+    @test size(PG(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
     @test size(FDIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (5, 5)
 
     # 3D input (higher-dimensional reshape)
@@ -182,6 +217,7 @@ end
     @test size(NIG(3 => 2)(x3d)) == (8, 4, 5)
     @test size(DIR(3 => 2)(x3d)) == (2, 4, 5)
     @test size(MVE(3 => 2)(x3d)) == (4, 4, 5)
+    @test size(PG(3 => 2)(x3d)) == (4, 4, 5)
     @test size(FDIR(3 => 2)(x3d)) == (5, 4, 5)
 end
 
@@ -317,6 +353,23 @@ end
     brier_reg = sum((y_eq .- p_eq) .^ 2, dims = 1)
     fd_evid = fd_total .- brier_reg
     @test fd_evid ≈ dir_evid
+
+    # nllpg
+    nout_pg, batch_pg = 3, 5
+    y_counts = Float32.(rand(0:10, nout_pg, batch_pg))
+    α_pg = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.5f0
+    β_pg = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.5f0
+    nll_pg = nllpg(y_counts, α_pg, β_pg)
+    @test size(nll_pg) == (nout_pg, batch_pg)
+    @test all(isfinite, nll_pg)
+
+    # pgloss
+    pl = pgloss(y_counts, α_pg, β_pg)
+    @test size(pl) == (nout_pg, batch_pg)
+    @test all(isfinite, pl)
+
+    # pgloss with λ=0 equals nllpg
+    @test pgloss(y_counts, α_pg, β_pg, 0) ≈ nllpg(y_counts, α_pg, β_pg)
 end
 
 @testset "predict" begin
@@ -362,6 +415,15 @@ end
     @test all(>(0), p_fdir.α)
     @test all(>(0), p_fdir.τ)
     @test all(isapprox.(sum(p_fdir.p, dims = 1), 1, atol = 1.0f-5))
+
+    # PG predict returns NamedTuple with α, β
+    m_pg = Chain(Dense(3 => 10, relu), PG(10 => 2))
+    p_pg = predict(m_pg, x)
+    @test p_pg isa NamedTuple{(:α, :β)}
+    @test size(p_pg.α) == (2, 5)
+    @test size(p_pg.β) == (2, 5)
+    @test all(>(0), p_pg.α)
+    @test all(>(0), p_pg.β)
 end
 
 @testset "Gradient flow" begin
@@ -418,6 +480,16 @@ end
     end
     @test isfinite(loss_fd)
     @test !isnothing(grads_fd[1])
+
+    # pgloss
+    y_counts = Float32.(rand(0:10, 2, 5))
+    m_pg = Chain(Dense(3 => 10, relu), PG(10 => 2))
+    loss_pg, grads_pg = Flux.withgradient(m_pg) do m
+        α, β = splitpg(m(x))
+        sum(pgloss(y_counts, α, β))
+    end
+    @test isfinite(loss_pg)
+    @test !isnothing(grads_pg[1])
 
     # mveloss
     m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2))

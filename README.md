@@ -26,6 +26,7 @@ generic `predict` and `split_params` dispatch.
 | Layer | Use case | Output | Uncertainty |
 |-------|----------|--------|-------------|
 | `NIG(in => out)` | Regression | γ, ν, α, β (4 × out) | Aleatoric + epistemic |
+| `PG(in => out)` | Count regression | α, β (2 × out) | Aleatoric + epistemic |
 | `DIR(in => out)` | Classification | Dirichlet concentrations (out) | Epistemic |
 | `FDIR(in => out)` | Classification | α, p, τ (2 × out + 1) | Aleatoric + epistemic |
 | `MVE(in => out)` | Regression | μ, σ (2 × out) | Aleatoric |
@@ -40,6 +41,8 @@ generic `predict` and `split_params` dispatch.
 | `dirloss(y, α, t)` | Dirichlet classification loss with KL regularization, returns `(1, B)` |
 | `dirloss2(y, α, t)` | Dirichlet loss + correct evidence regularization (Pandey et al. 2025) |
 | `fdirloss(y, α, p, τ)` | Flexible Dirichlet loss (Yoon & Kim 2025) |
+| `pgloss(y, α, β, λ)` | Poisson-Gamma count regression loss (NLL + regularizer) |
+| `nllpg(y, α, β)` | Negative Binomial marginal NLL |
 | `mveloss(y, μ, σ)` | Gaussian negative log-likelihood |
 | `nllstudent(y, γ, ν, α, β)` | Student-T negative log-likelihood |
 
@@ -51,6 +54,7 @@ generic `predict` and `split_params` dispatch.
 | `split_params(LayerType, y)` | Generic output decomposition into a NamedTuple (e.g. `split_params(NIG, y)`) |
 | `splitnig(y)` | Split concatenated NIG output into (γ, ν, α, β) |
 | `splitmve(y)` | Split concatenated MVE output into (μ, σ) |
+| `splitpg(y)` | Split concatenated PG output into (α, β) |
 | `splitfdir(y)` | Split concatenated FDIR output into (α, p, τ) |
 | `uncertainty(ν, α, β)` | Epistemic uncertainty: β / (ν(α-1)) |
 | `uncertainty(α, β)` | Aleatoric uncertainty: β / (α-1) |

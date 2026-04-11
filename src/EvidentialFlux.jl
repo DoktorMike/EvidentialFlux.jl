@@ -8,6 +8,7 @@ using SpecialFunctions
 include("dense.jl")
 export AbstractEvidentialLayer
 export NIG
+export PG
 export DIR
 export MVE
 export FDIR
@@ -19,6 +20,8 @@ export nigloss3
 export dirloss
 export dirloss2
 export fdirloss
+export nllpg
+export pgloss
 export mveloss
 export nllstudent
 
@@ -27,6 +30,7 @@ export split_params
 export splitnig
 export splitmve
 export splitfdir
+export splitpg
 export uncertainty
 export aleatoric
 export epistemic
