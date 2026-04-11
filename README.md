@@ -40,6 +40,7 @@ generic `predict` and `split_params` dispatch.
 | `nigloss3(y, γ, ν, α, β, λ, λ₁)` | Uncertainty regularized loss (Ye et al. 2024) |
 | `dirloss(y, α, t)` | Dirichlet classification loss with KL regularization, returns `(1, B)` |
 | `dirloss2(y, α, t)` | Dirichlet loss + correct evidence regularization (Pandey et al. 2025) |
+| `dirmultloss(y, α)` | Dirichlet-Multinomial NLL for count vector targets (reuses `DIR` layer) |
 | `fdirloss(y, α, p, τ)` | Flexible Dirichlet loss (Yoon & Kim 2025) |
 | `pgloss(y, α, β, λ)` | Poisson-Gamma count regression loss (NLL + regularizer) |
 | `nllpg(y, α, β)` | Negative Binomial marginal NLL |

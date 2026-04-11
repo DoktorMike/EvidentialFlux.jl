@@ -312,6 +312,19 @@ end
     # dirloss2 ≥ dirloss (correction term is non-negative)
     @test all(dirloss2(y_oh, α_dir, 1) .≥ dirloss(y_oh, α_dir, 1) .- eps(Float32))
 
+    # dirmultloss returns (1, B) and is finite
+    y_counts_dm = Float32.([3 0 1; 2 5 0; 0 1 4])  # (3, 3) count vectors
+    α_dm = abs.(randn(Float32, 3, 3)) .+ 1.1f0
+    dml = dirmultloss(y_counts_dm, α_dm)
+    @test size(dml) == (1, 3)
+    @test all(isfinite, dml)
+
+    # dirmultloss sanity: uniform Dir(1,1) with single observation [1,0]
+    # should give NLL = log(2) since p(y|α=[1,1]) = 0.5
+    y_single = Float32.([1; 0;;])
+    α_uniform = Float32.([1; 1;;])
+    @test dirmultloss(y_single, α_uniform) ≈ Float32.(log(2) * ones(1, 1)) atol = 1.0f-5
+
     # mveloss
     μ = randn(Float32, nout, batch)
     σ = abs.(randn(Float32, nout, batch)) .+ 0.1f0
@@ -470,6 +483,14 @@ end
     end
     @test isfinite(loss_d2)
     @test !isnothing(grads_d2[1])
+
+    # dirmultloss (reuses DIR layer with count targets)
+    y_counts_dm = Float32.([3 0 1 2 5; 2 5 0 4 1])
+    loss_dm, grads_dm = Flux.withgradient(m_dir) do m
+        sum(dirmultloss(y_counts_dm, m(x)))
+    end
+    @test isfinite(loss_dm)
+    @test !isnothing(grads_dm[1])
 
     # fdirloss
     y_oh_fd = Float32.([1 0 1 0 0; 0 1 0 1 1])

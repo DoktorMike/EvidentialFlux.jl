@@ -176,6 +176,36 @@ function dirloss2(y, α, t)
 end
 
 """
+    dirmultloss(y, α)
+
+Negative log-likelihood of the Dirichlet-Multinomial distribution, obtained by
+integrating out `p ~ Dir(α)` from `Multinomial(y | n, p)`. Use this with the
+`DIR` layer when targets are count vectors (e.g., word counts, event tallies)
+rather than one-hot categories.
+
+    p(y|α) = [n!/Πₖyₖ!] · B(y+α)/B(α)
+
+where `n = Σyₖ`, `S = Σαₖ`, and B is the multivariate Beta function.
+
+Unlike `dirloss` (which uses a Bayes Risk MSE + KL regularizer for one-hot
+targets), this is a proper type II maximum likelihood loss that needs no
+additional regularization.
+
+# Arguments:
+- `y`: non-negative count targets, shape `(K, B)` where `K` is the number of categories
+- `α`: Dirichlet concentration parameters from a DIR layer, shape `(K, B)`
+"""
+function dirmultloss(y, α)
+    logΓ = SpecialFunctions.loggamma
+    n = sum(y, dims = 1)                                                    # (1, B)
+    S = sum(α, dims = 1)                                                    # (1, B)
+    nll = .- logΓ.(n .+ 1) .+ sum(logΓ.(y .+ 1), dims = 1) .+
+        logΓ.(n .+ S) .- logΓ.(S) .+
+        sum(logΓ.(α) .- logΓ.(y .+ α), dims = 1)
+    return nll
+end
+
+"""
     mveloss(y, μ, σ)
 
 Calculates the Mean-Variance loss for a Normal distribution. This is merely the negative log likelihood.

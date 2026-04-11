@@ -155,6 +155,12 @@ end
     @test size(dl2) == (1, 5)
     @test all(isfinite, Array(dl2))
 
+    # dirmultloss
+    y_counts_dm = cu(Float32.([3 0 1 2 5; 2 5 0 4 1; 0 1 4 0 3]))
+    dml = dirmultloss(y_counts_dm, α_dir)
+    @test size(dml) == (1, 5)
+    @test all(isfinite, Array(dml))
+
     # fdirloss
     nclasses_fd = 3
     y_oh_fd = cu(Float32.([1 0 0 1 0; 0 1 0 0 1; 0 0 1 0 0]))
@@ -226,6 +232,14 @@ end
     end
     @test isfinite(loss_d2)
     @test !isnothing(grads_d2[1])
+
+    # dirmultloss
+    y_counts_dm = cu(Float32.([3 0 1 2 5; 2 5 0 4 1]))
+    loss_dm, grads_dm = Flux.withgradient(m_dir) do m
+        sum(dirmultloss(y_counts_dm, m(x)))
+    end
+    @test isfinite(loss_dm)
+    @test !isnothing(grads_dm[1])
 
     # pgloss
     y_counts = cu(Float32.([0 1 3 2 5; 2 0 1 4 3]))

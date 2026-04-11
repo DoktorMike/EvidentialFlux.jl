@@ -19,6 +19,7 @@ export nigloss2
 export nigloss3
 export dirloss
 export dirloss2
+export dirmultloss
 export fdirloss
 export nllpg
 export pgloss
