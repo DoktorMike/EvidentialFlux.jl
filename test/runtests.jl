@@ -217,6 +217,19 @@ end
     @test all(isfinite, dl_early)
     @test all(isfinite, dl_late)
 
+    # dirloss2 returns (1, B) and is finite
+    dl2 = dirloss2(y_oh, α_dir, 1)
+    @test size(dl2) == (1, 5)
+    @test all(isfinite, dl2)
+
+    # dirloss2 correction is inactive when all evidence is high (o_gt > 0),
+    # so dirloss2 == dirloss for large α
+    α_high = ones(Float32, nclasses, 5) .+ 10.0f0
+    @test dirloss2(y_oh, α_high, 5) ≈ dirloss(y_oh, α_high, 5)
+
+    # dirloss2 ≥ dirloss (correction term is non-negative)
+    @test all(dirloss2(y_oh, α_dir, 1) .≥ dirloss(y_oh, α_dir, 1) .- eps(Float32))
+
     # mveloss
     μ = randn(Float32, nout, batch)
     σ = abs.(randn(Float32, nout, batch)) .+ 0.1f0
@@ -301,6 +314,13 @@ end
     end
     @test isfinite(loss_d)
     @test !isnothing(grads_d[1])
+
+    # dirloss2
+    loss_d2, grads_d2 = Flux.withgradient(m_dir) do m
+        sum(dirloss2(y_oh, m(x), 1))
+    end
+    @test isfinite(loss_d2)
+    @test !isnothing(grads_d2[1])
 
     # mveloss
     m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2))

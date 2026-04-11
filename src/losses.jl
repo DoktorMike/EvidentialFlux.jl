@@ -145,6 +145,37 @@ function dirloss(y, α, t)
 end
 
 """
+    dirloss2(y, α, t)
+
+Dirichlet classification loss with correct evidence regularization from Pandey,
+Choi & Yu, "Generalized Regularized Evidential Deep Learning Models" (2025).
+
+Extends `dirloss` with an additional term `ℒ_cor` that prevents gradient
+vanishing when the ground-truth class has low evidence (the "learning freeze"
+problem). The correction is weighted by the vacuity `ν = K/S` and only active
+when the pre-activation logit for the ground-truth class is negative (i.e.,
+evidence below the softplus inflection point).
+
+The total loss is `ℒ_evid + λₜ·ℒ_inc + ℒ_cor` where `ℒ_cor = -𝟙(o_gt < 0)·ν·o_gt`.
+
+# Arguments:
+- `y`: one-hot encoded targets, shape `(K, B)`
+- `α`: Dirichlet concentration parameters from a DIR layer, shape `(K, B)`
+- `t`: current epoch (used for KL annealing on `ℒ_inc`)
+"""
+function dirloss2(y, α, t)
+    base = dirloss(y, α, t)
+    # ℒ_cor: Correct evidence regularization
+    K = first(size(α))
+    S = sum(α, dims = 1)
+    e_gt = sum(y .* (α .- 1), dims = 1)                    # GT class evidence, (1, B)
+    o_gt = log.(expm1.(max.(e_gt, eps(eltype(α)))))         # inverse softplus, clamped
+    ν = ignore_derivatives(K ./ S)                           # vacuity (detached)
+    cor = .- (o_gt .< 0) .* ν .* o_gt
+    return base .+ cor
+end
+
+"""
     mveloss(y, μ, σ)
 
 Calculates the Mean-Variance loss for a Normal distribution. This is merely the negative log likelihood.

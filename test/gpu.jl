@@ -105,6 +105,11 @@ end
     @test size(dl) == (1, 5)
     @test all(isfinite, Array(dl))
 
+    # dirloss2
+    dl2 = dirloss2(y_oh, α_dir, 1)
+    @test size(dl2) == (1, 5)
+    @test all(isfinite, Array(dl2))
+
     # mveloss
     μ = CUDA.randn(Float32, nout, batch)
     σ = CUDA.rand(Float32, nout, batch) .+ 0.1f0
@@ -150,6 +155,13 @@ end
     end
     @test isfinite(loss_d)
     @test !isnothing(grads_d[1])
+
+    # dirloss2
+    loss_d2, grads_d2 = Flux.withgradient(m_dir) do m
+        sum(dirloss2(y_oh, m(x), 1))
+    end
+    @test isfinite(loss_d2)
+    @test !isnothing(grads_d2[1])
 
     # mveloss
     m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2)) |> gpu

@@ -16,6 +16,7 @@ export nigloss
 export nigloss2
 export nigloss3
 export dirloss
+export dirloss2
 export mveloss
 export nllstudent
 

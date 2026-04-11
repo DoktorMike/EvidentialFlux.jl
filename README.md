@@ -37,6 +37,7 @@ generic `predict` and `split_params` dispatch.
 | `nigloss2(y, γ, ν, α, β, λ, p)` | Corrected DER loss (Meinert et al. 2022) |
 | `nigloss3(y, γ, ν, α, β, λ, λ₁)` | Uncertainty regularized loss (Ye et al. 2024) |
 | `dirloss(y, α, t)` | Dirichlet classification loss with KL regularization, returns `(1, B)` |
+| `dirloss2(y, α, t)` | Dirichlet loss + correct evidence regularization (Pandey et al. 2025) |
 | `mveloss(y, μ, σ)` | Gaussian negative log-likelihood |
 | `nllstudent(y, γ, ν, α, β)` | Student-T negative log-likelihood |
 
@@ -194,6 +195,7 @@ distribution supports them.
 - Meinert, N., Gawlikowski, J. & Lavin, A. The Unreasonable Effectiveness of Deep Evidential Regression. arXiv (2022).
 - Ye, K., Chen, T., Wei, H. & Zhan, L. Uncertainty Regularized Evidential Regression. AAAI 38 (2024).
 - Sensoy, M., Kaplan, L. & Kandemir, M. Evidential Deep Learning to Quantify Classification Uncertainty. NeurIPS (2018).
+- Pandey, D. S., Choi, H. & Yu, Q. Generalized Regularized Evidential Deep Learning Models. arXiv (2025).
 
 ## Summary
 
