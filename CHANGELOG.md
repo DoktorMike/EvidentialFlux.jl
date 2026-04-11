@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.8.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.7.0...v1.8.0) (2026-04-11)
+
+
+### Features
+
+* added a consistent api for uncertainty, aleatoric and epistemic. ([539e4f8](https://github.com/DoktorMike/EvidentialFlux.jl/commit/539e4f89cb712ea5766f559015cdd5b991ed9d1e))
+* added a new api for prediction of the evidential models. Now predict outputs distributional parameters while predictive outputs the values in data space, i.e., the posterior predictive mean. ([dde33d0](https://github.com/DoktorMike/EvidentialFlux.jl/commit/dde33d0bcb8a1a0a36334371eb766acc146d48b2))
+* Added a PoissonGamma (PG) layer for count regression. ([5e92c2e](https://github.com/DoktorMike/EvidentialFlux.jl/commit/5e92c2ef7af36ae7caa113be43fb2a88b573f692))
+* Added F-DIR layer which is a flexible Dirichlet distribution for classification purposes. It should be strictly more powerful and also sporting multimodality. ([ad3136c](https://github.com/DoktorMike/EvidentialFlux.jl/commit/ad3136c8963a48078511c5a5a85f728b4426496f))
+* Added the Beta-Negative Binomial layer. We're using a marginal negative log likelihood and one featuring and evidence regularizer. ([8d8c1cf](https://github.com/DoktorMike/EvidentialFlux.jl/commit/8d8c1cff5e94e8d860c12cd7961e95ff3b2819f9))
+* Added the Multinomial Dirichlet loss function which allows us to fit a count of multiple classes. This reuses the DIR layer so we introduce only a new loss. ([39017ea](https://github.com/DoktorMike/EvidentialFlux.jl/commit/39017ea0631bc8bc2d0f4c0e4bd7a70109c83399))
+
+
+### Other
+
+* 🧪 more tests confirming the correctness of the new FDIR layer. ([8bb7ca9](https://github.com/DoktorMike/EvidentialFlux.jl/commit/8bb7ca96a14c19aa6b3f70c5241644b5bcf3d17e))
+
 ## [1.7.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.6.0...v1.7.0) (2026-04-11)
 
 
