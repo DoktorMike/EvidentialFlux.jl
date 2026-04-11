@@ -300,6 +300,23 @@ end
     @test all(isfinite, fl)
     # loss is non-negative (sum of squared terms + Brier score)
     @test all(≥(0), fl)
+
+    # Theorem 4.3: FD reduces to Dirichlet when τ=1 and p = α/Σα.
+    # The evidence term (expected Brier score) of fdirloss should equal
+    # the Dirichlet Bayes Risk MSE computed with the same concentrations.
+    α_eq = Float32.([2.0 3.0; 3.0 5.0; 5.0 2.0])  # (3, 2)
+    y_eq = Float32.([1 0; 0 1; 0 0])
+    α₀ = sum(α_eq, dims = 1)
+    τ_one = ones(Float32, 1, 2)
+    p_eq = α_eq ./ α₀
+    # Dirichlet Bayes Risk MSE: Σₖ [(yₖ - p̂ₖ)² + p̂ₖ(1-p̂ₖ)/(S+1)]
+    p̂ = α_eq ./ α₀
+    dir_evid = sum((y_eq - p̂) .^ 2 .+ p̂ .* (1 .- p̂) ./ (α₀ .+ 1), dims = 1)
+    # FD evidence term = fdirloss - Brier regularizer on p
+    fd_total = fdirloss(y_eq, α_eq, p_eq, τ_one)
+    brier_reg = sum((y_eq .- p_eq) .^ 2, dims = 1)
+    fd_evid = fd_total .- brier_reg
+    @test fd_evid ≈ dir_evid
 end
 
 @testset "predict" begin

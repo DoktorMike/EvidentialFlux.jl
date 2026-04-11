@@ -6,7 +6,7 @@
     {"type": "docs", "hidden": false, "section": "Documentation"},
     {"type": "style", "hidden": false, "section": "Other"},
     {"type": "refactor", "hidden": false, "section": "Other"},
-    {"type": "perf", "hidden": true},
-    {"type": "test", "hidden": true}
+    {"type": "perf", "hidden": false, "section": "Other"},
+    {"type": "test", "hidden": false, "section": "Other"}
 ]
 }
