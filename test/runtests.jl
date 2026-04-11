@@ -2,6 +2,12 @@ using EvidentialFlux
 using Flux
 using Test
 
+@testset "AbstractEvidentialLayer" begin
+    @test NIG <: AbstractEvidentialLayer
+    @test DIR <: AbstractEvidentialLayer
+    @test MVE <: AbstractEvidentialLayer
+end
+
 @testset "EvidentialFlux.jl - Classification" begin
     ninp, nout = 3, 5
     m = DIR(ninp => nout)
@@ -73,6 +79,51 @@ end
     @test ν2 == ν
     @test α2 == α
     @test β2 == β
+end
+
+@testset "split_params" begin
+    nout, batch = 3, 5
+
+    # NIG split_params returns NamedTuple
+    γ = ones(Float32, nout, batch)
+    ν = 2 * ones(Float32, nout, batch)
+    α = 3 * ones(Float32, nout, batch)
+    β = 4 * ones(Float32, nout, batch)
+    y_nig = vcat(γ, ν, α, β)
+    p = split_params(NIG, y_nig)
+    @test p isa NamedTuple{(:γ, :ν, :α, :β)}
+    @test p.γ == γ
+    @test p.ν == ν
+    @test p.α == α
+    @test p.β == β
+    # round-trip: vcat of parts equals original
+    @test vcat(p.γ, p.ν, p.α, p.β) == y_nig
+
+    # MVE split_params returns NamedTuple
+    μ = ones(Float32, nout, batch)
+    σ = 2 * ones(Float32, nout, batch)
+    y_mve = vcat(μ, σ)
+    q = split_params(MVE, y_mve)
+    @test q isa NamedTuple{(:μ, :σ)}
+    @test q.μ == μ
+    @test q.σ == σ
+    @test vcat(q.μ, q.σ) == y_mve
+
+    # DIR split_params wraps in NamedTuple
+    α_dir = ones(Float32, nout, batch)
+    r = split_params(DIR, α_dir)
+    @test r isa NamedTuple{(:α,)}
+    @test r.α == α_dir
+end
+
+@testset "splitmve" begin
+    nout, batch = 3, 5
+    μ = ones(Float32, nout, batch)
+    σ = 2 * ones(Float32, nout, batch)
+    y = vcat(μ, σ)
+    μ2, σ2 = splitmve(y)
+    @test μ2 == μ
+    @test σ2 == σ
 end
 
 @testset "Layer options" begin
@@ -152,19 +203,19 @@ end
     @test size(l3) == (nout, batch)
     @test all(isfinite, l3)
 
-    # dirloss returns a finite scalar
+    # dirloss returns (1, B) — one loss per batch element
     nclasses = 3
     y_oh = Float32.([1 0 0 1 0; 0 1 0 0 1; 0 0 1 0 0])
     α_dir = abs.(randn(Float32, nclasses, 5)) .+ 1.1f0
     dl = dirloss(y_oh, α_dir, 1)
-    @test isfinite(dl)
-    @test dl isa Number
+    @test size(dl) == (1, 5)
+    @test all(isfinite, dl)
 
     # dirloss annealing: λₜ = min(1.0, t/10) changes with epoch
     dl_early = dirloss(y_oh, α_dir, 1)
     dl_late = dirloss(y_oh, α_dir, 20)
-    @test isfinite(dl_early)
-    @test isfinite(dl_late)
+    @test all(isfinite, dl_early)
+    @test all(isfinite, dl_late)
 
     # mveloss
     μ = randn(Float32, nout, batch)
@@ -182,23 +233,31 @@ end
 @testset "predict" begin
     x = randn(Float32, 3, 5)
 
-    # NIG predict
+    # NIG predict returns NamedTuple, destructurable
     m_nig = Chain(Dense(3 => 10, relu), NIG(10 => 2))
+    p_nig = predict(m_nig, x)
+    @test p_nig isa NamedTuple{(:γ, :ν, :α, :β)}
+    @test size(p_nig.γ) == (2, 5)
+    @test size(p_nig.ν) == (2, 5)
+    @test all(>(0), p_nig.ν)
+    @test all(≥(1), p_nig.α)
+    @test all(>(0), p_nig.β)
+    # backward compat: tuple destructuring still works
     γ, ν, α, β = predict(m_nig, x)
     @test size(γ) == (2, 5)
-    @test size(ν) == (2, 5)
-    @test all(>(0), ν)
-    @test all(≥(1), α)
-    @test all(>(0), β)
 
-    # MVE predict
+    # MVE predict returns NamedTuple, destructurable
     m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2))
+    p_mve = predict(m_mve, x)
+    @test p_mve isa NamedTuple{(:μ, :σ)}
+    @test size(p_mve.μ) == (2, 5)
+    @test size(p_mve.σ) == (2, 5)
+    @test all(>(0), p_mve.σ)
+    # backward compat: tuple destructuring still works
     μ, σ = predict(m_mve, x)
     @test size(μ) == (2, 5)
-    @test size(σ) == (2, 5)
-    @test all(>(0), σ)
 
-    # DIR predict
+    # DIR predict returns raw array (backward compatible)
     m_dir = Chain(Dense(3 => 10, relu), DIR(10 => 4))
     α = predict(m_dir, x)
     @test size(α) == (4, 5)
@@ -238,7 +297,7 @@ end
     y_oh = Float32.([1 0 1 0 0; 0 1 0 1 1])
     m_dir = Chain(Dense(3 => 10, relu), DIR(10 => 2))
     loss_d, grads_d = Flux.withgradient(m_dir) do m
-        dirloss(y_oh, m(x), 1)
+        sum(dirloss(y_oh, m(x), 1))
     end
     @test isfinite(loss_d)
     @test !isnothing(grads_d[1])
@@ -252,4 +311,11 @@ end
     end
     @test isfinite(loss_m)
     @test !isnothing(grads_m[1])
+end
+
+using CUDA
+if CUDA.functional()
+    include("gpu.jl")
+else
+    @info "CUDA not functional, skipping GPU tests"
 end

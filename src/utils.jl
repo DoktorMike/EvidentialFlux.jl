@@ -1,4 +1,25 @@
 """
+    split_params(::Type{<:NIG}, y)
+
+Split NIG layer output into a NamedTuple `(γ, ν, α, β)`.
+
+    split_params(::Type{<:MVE}, y)
+
+Split MVE layer output into a NamedTuple `(μ, σ)`.
+
+    split_params(::Type{<:DIR}, y)
+
+Wrap DIR layer output into a NamedTuple `(α,)`.
+"""
+split_params(::Type{<:NIG}, y) = let (γ, ν, α, β) = _split_equal(y, 4)
+    (γ = γ, ν = ν, α = α, β = β)
+end
+split_params(::Type{<:MVE}, y) = let (μ, σ) = _split_equal(y, 2)
+    (μ = μ, σ = σ)
+end
+split_params(::Type{<:DIR}, y) = (α = y,)
+
+"""
     splitnig(y)
 
 Splits the concatenated output of a NIG layer into its four components: γ, ν, α, β.
@@ -11,14 +32,22 @@ output neurons.
 # Returns:
 - `(γ, ν, α, β)`: tuple of arrays each with shape `(nout, batch...)`
 """
-function splitnig(y)
-    nout = size(y, 1) ÷ 4
-    γ = y[1:nout, :]
-    ν = y[(nout + 1):(2 * nout), :]
-    α = y[(2 * nout + 1):(3 * nout), :]
-    β = y[(3 * nout + 1):(4 * nout), :]
-    return γ, ν, α, β
-end
+splitnig(y) = let p = split_params(NIG, y); (p.γ, p.ν, p.α, p.β) end
+
+"""
+    splitmve(y)
+
+Splits the concatenated output of an MVE layer into its two components: μ, σ.
+The input `y` should have shape `(nout*2, batch...)` where `nout` is the number of
+output neurons.
+
+# Arguments:
+- `y`: the concatenated MVE output with shape `(nout*2, batch...)`
+
+# Returns:
+- `(μ, σ)`: tuple of arrays each with shape `(nout, batch...)`
+"""
+splitmve(y) = let p = split_params(MVE, y); (p.μ, p.σ) end
 
 """
     uncertainty(ν, α, β)
@@ -110,25 +139,18 @@ epistemic(ν) = 1 ./ sqrt.(ν)
     predict(m, x)
 
 Returns the predictions along with the available epistemic and aleatoric uncertainty.
-If applied to the MVE network you get a μ and σ as return values.
+Dispatches on the last layer type of the model:
+- **NIG**: returns `(γ, ν, α, β)` NamedTuple
+- **MVE**: returns `(μ, σ)` NamedTuple
+- **DIR**: returns α directly (raw array, for backward compatibility)
 
 # Arguments:
-- `m`: the model which has to have the last layer be Normal Inverse Gamma(NIG) layer
+- `m`: the model whose last layer is an `AbstractEvidentialLayer`
 - `x`: the input data which has to be given as an array or vector
 """
 predict(m, x) = predict(last_type(m), m, x)
 last_type(m::Chain) = last_type(m[end])
 last_type(m) = typeof(m)
 
-function predict(::Type{<:NIG}, m, x)
-    return splitnig(m(x))
-end
-
-function predict(::Type{<:MVE}, m, x)
-    ŷ = m(x)
-    nout = first(size(ŷ)) ÷ 2
-    μ, σ = ŷ[1:nout, :], ŷ[(nout + 1):(2 * nout), :]
-    return μ, σ
-end
-
+predict(::Type{T}, m, x) where {T <: AbstractEvidentialLayer} = split_params(T, m(x))
 predict(::Type{<:DIR}, m, x) = m(x)

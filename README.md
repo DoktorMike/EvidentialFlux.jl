@@ -20,6 +20,9 @@ using Pkg; Pkg.add(url="https://github.com/DoktorMike/EvidentialFlux.jl")
 EvidentialFlux provides three output layer types, each suited to a different
 modeling scenario:
 
+All layers are subtypes of `AbstractEvidentialLayer`, which provides
+generic `predict` and `split_params` dispatch.
+
 | Layer | Use case | Output | Uncertainty |
 |-------|----------|--------|-------------|
 | `NIG(in => out)` | Regression | γ, ν, α, β (4 × out) | Aleatoric + epistemic |
@@ -33,7 +36,7 @@ modeling scenario:
 | `nigloss(y, γ, ν, α, β, λ, ϵ)` | Standard evidential regression loss (Amini et al. 2020) |
 | `nigloss2(y, γ, ν, α, β, λ, p)` | Corrected DER loss (Meinert et al. 2022) |
 | `nigloss3(y, γ, ν, α, β, λ, λ₁)` | Uncertainty regularized loss (Ye et al. 2024) |
-| `dirloss(y, α, t)` | Dirichlet classification loss with KL regularization |
+| `dirloss(y, α, t)` | Dirichlet classification loss with KL regularization, returns `(1, B)` |
 | `mveloss(y, μ, σ)` | Gaussian negative log-likelihood |
 | `nllstudent(y, γ, ν, α, β)` | Student-T negative log-likelihood |
 
@@ -41,8 +44,10 @@ modeling scenario:
 
 | Function | Description |
 |----------|-------------|
-| `predict(model, x)` | Unified prediction dispatching on the last layer type |
+| `predict(model, x)` | Unified prediction dispatch; returns a NamedTuple for NIG/MVE, raw array for DIR |
+| `split_params(LayerType, y)` | Generic output decomposition into a NamedTuple (e.g. `split_params(NIG, y)`) |
 | `splitnig(y)` | Split concatenated NIG output into (γ, ν, α, β) |
+| `splitmve(y)` | Split concatenated MVE output into (μ, σ) |
 | `uncertainty(ν, α, β)` | Epistemic uncertainty: β / (ν(α-1)) |
 | `uncertainty(α, β)` | Aleatoric uncertainty: β / (α-1) |
 | `uncertainty(α)` | DIR epistemic uncertainty: K / Σα |
@@ -50,6 +55,15 @@ modeling scenario:
 | `aleatoric(ν, α, β)` | Student-T std: β(1+ν) / (να) |
 | `evidence(ν, α)` | NIG total evidence: 2ν + α |
 | `evidence(α)` | DIR evidence: α - 1 |
+
+`predict` returns NamedTuples for NIG and MVE, so you can access
+parameters by name or destructure them as before:
+
+```julia
+p = predict(model, x)
+p.γ   # access by name
+γ, ν, α, β = predict(model, x)  # destructuring still works
+```
 
 ## Quick start
 
@@ -118,6 +132,61 @@ The [examples/](examples/) folder contains complete working examples:
 - [regression3.jl](examples/regression3.jl) -- NIG with LayerNorm and evidence tracking
 - [regression4.jl](examples/regression4.jl) -- MVE with parameter freezing/thawing
 - [classification.jl](examples/classification.jl) -- DIR for multi-class classification
+
+## GPU support
+
+All layers and losses work on both CPU and GPU via standard Flux conventions.
+Move a model and data to the GPU with `gpu`:
+
+```julia
+using CUDA
+
+model = Chain(Dense(1 => 100, relu), NIG(100 => 1)) |> gpu
+x_gpu = cu(x)
+γ, ν, α, β = predict(model, x_gpu)  # returns CuArrays
+```
+
+Gradient computation, `predict`, `split_params`, and all loss functions are
+GPU-compatible. The test suite includes GPU-specific tests that run
+automatically when `CUDA.functional()` is true.
+
+## Adding a new distributional output
+
+All output layers subtype `AbstractEvidentialLayer`. To add a new distribution
+(e.g. LogNormal), implement four things:
+
+**1. Layer struct and forward pass** (`src/dense.jl`):
+
+```julia
+struct MyLayer{F, M <: AbstractMatrix, B} <: AbstractEvidentialLayer
+    W::M; b::B; σ::F
+end
+
+function (a::MyLayer)(x::AbstractVecOrMat)
+    o = a.W * x .+ a.b
+    chunk1, chunk2 = _split_equal(o, 2)       # reuse generic splitter
+    return vcat(chunk1, a.σ.(chunk2))
+end
+```
+
+**2. Parameter decomposition** (`src/utils.jl`):
+
+```julia
+split_params(::Type{<:MyLayer}, y) = let (a, b) = _split_equal(y, 2)
+    (a = a, b = b)
+end
+```
+
+`predict` then works automatically -- no additional dispatch needed.
+
+**3. Loss function(s)** (`src/losses.jl`):
+
+Define loss functions that operate on the split parameters.
+
+**4. Uncertainty/evidence methods** (`src/utils.jl`, optional):
+
+Add `uncertainty` and/or `evidence` methods via multiple dispatch if your
+distribution supports them.
 
 ## References
 

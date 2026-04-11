@@ -1,10 +1,29 @@
 """
+    AbstractEvidentialLayer
+
+Abstract supertype for all evidential output layers (NIG, DIR, MVE, etc.).
+Subtypes participate in generic `predict` and `split_params` dispatch.
+"""
+abstract type AbstractEvidentialLayer end
+
+"""
     _reshape_call(a, x::AbstractArray)
 
 Internal helper to handle higher-dimensional (3D+) array inputs by reshaping
 to a matrix, applying the layer, and reshaping back.
 """
 _reshape_call(a, x::AbstractArray) = reshape(a(reshape(x, size(x, 1), :)), :, size(x)[2:end]...)
+
+"""
+    _split_equal(y::AbstractVecOrMat, n::Int)
+
+Split the first dimension of `y` into `n` equal-sized chunks.
+Returns an `n`-tuple of arrays each with shape `(nout, batch...)` where `nout = size(y,1) ÷ n`.
+"""
+function _split_equal(y::AbstractVecOrMat, n::Int)
+    nout = size(y, 1) ÷ n
+    return ntuple(i -> y[(1 + (i - 1) * nout):(i * nout), :], n)
+end
 
 """
     NIG(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
@@ -33,7 +52,7 @@ The same holds true for the `bias` vector.
 - `init`: The function to use to initialise the weight matrix.
 - `bias`: Whether to include a trainable bias vector.
 """
-struct NIG{F, M <: AbstractMatrix, B}
+struct NIG{F, M <: AbstractMatrix, B} <: AbstractEvidentialLayer
     W::M
     b::B
     σ::F
@@ -53,16 +72,9 @@ end
 Flux.@layer NIG
 
 function (a::NIG)(x::AbstractVecOrMat)
-    nout = size(a.W, 1) ÷ 4
     o = a.W * x .+ a.b
-    γ = o[1:nout, :]
-    ν = o[(nout + 1):(nout * 2), :]
-    ν = a.σ.(ν)
-    α = o[(nout * 2 + 1):(nout * 3), :]
-    α = a.σ.(α) .+ 1
-    β = o[(nout * 3 + 1):(nout * 4), :]
-    β = a.σ.(β)
-    return vcat(γ, ν, α, β)
+    γ, ν_raw, α_raw, β_raw = _split_equal(o, 4)
+    return vcat(γ, a.σ.(ν_raw), a.σ.(α_raw) .+ 1, a.σ.(β_raw))
 end
 
 (a::NIG)(x::AbstractArray) = _reshape_call(a, x)
@@ -97,7 +109,7 @@ The weight matrix and/or the bias vector (of length `out`) may also be provided 
 - `init`: The function to use to initialise the weight matrix.
 - `bias`: Whether to include a trainable bias vector.
 """
-struct DIR{M <: AbstractMatrix, B}
+struct DIR{M <: AbstractMatrix, B} <: AbstractEvidentialLayer
     W::M
     b::B
     function DIR(W::M, b = true) where {M <: AbstractMatrix}
@@ -144,7 +156,7 @@ The same holds true for the `bias` vector.
 - `init`: The function to use to initialise the weight matrix.
 - `bias`: Whether to include a trainable bias vector.
 """
-struct MVE{T <: Chain}
+struct MVE{T <: Chain} <: AbstractEvidentialLayer
     chain::T
 end
 

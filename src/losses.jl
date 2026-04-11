@@ -140,9 +140,8 @@ function dirloss(y, α, t)
     # Keep only misleading evidence, i.e., penalize stuff that fit badly
     α̂ = @. y + (1 - y) * α
     reg = kl(α̂)
-    # Total loss = likelihood + regularizer
-    #sum(loss .+ λₜ .* reg, dims = 2)
-    return sum(loss .+ λₜ .* reg)
+    # Total loss = likelihood + regularizer, shape (1, B) — one loss per batch element
+    return loss .+ λₜ .* reg
 end
 
 """

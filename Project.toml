@@ -14,7 +14,8 @@ NNlib = "0.9.31"
 SpecialFunctions = "2.5.1"
 
 [extras]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["CUDA", "Test"]

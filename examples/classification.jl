@@ -28,7 +28,7 @@ for e in 1:epochs
     local trnloss = 0
     grads = Flux.gradient(p) do
         α = m(X)
-        trnloss = dirloss(y, α, e)
+        trnloss = sum(dirloss(y, α, e))
         trnloss
     end
     trnlosses[e] = trnloss
