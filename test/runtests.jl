@@ -569,6 +569,60 @@ end
     @test all(>(0), p_bnb.β)
 end
 
+@testset "predictive" begin
+    x = randn(Float32, 3, 5)
+
+    # NIG: ŷ = γ, both uncertainties present
+    m_nig = Chain(Dense(3 => 10, relu), NIG(10 => 2))
+    r_nig = predictive(m_nig, x)
+    @test r_nig isa NamedTuple{(:ŷ, :epistemic, :aleatoric, :params)}
+    @test r_nig.params isa NamedTuple{(:γ, :ν, :α, :β)}
+    @test r_nig.ŷ == r_nig.params.γ
+    @test size(r_nig.ŷ) == (2, 5)
+    @test size(r_nig.epistemic) == (2, 5)
+    @test size(r_nig.aleatoric) == (2, 5)
+
+    # PG: ŷ = α/β
+    m_pg = Chain(Dense(3 => 10, relu), PG(10 => 2))
+    r_pg = predictive(m_pg, x)
+    @test r_pg.ŷ ≈ r_pg.params.α ./ r_pg.params.β
+    @test size(r_pg.epistemic) == (2, 5)
+    @test size(r_pg.aleatoric) == (2, 5)
+
+    # BNB: ŷ = r·α/β
+    m_bnb = Chain(Dense(3 => 10, relu), BNB(10 => 2))
+    r_bnb = predictive(m_bnb, x)
+    @test r_bnb.ŷ ≈ r_bnb.params.r .* r_bnb.params.α ./ r_bnb.params.β
+    @test size(r_bnb.epistemic) == (2, 5)
+    @test size(r_bnb.aleatoric) == (2, 5)
+
+    # DIR: ŷ = α/Σα, aleatoric is nothing
+    m_dir = Chain(Dense(3 => 10, relu), DIR(10 => 4))
+    r_dir = predictive(m_dir, x)
+    α_dir = r_dir.params
+    @test r_dir.ŷ ≈ α_dir ./ sum(α_dir, dims = 1)
+    @test all(isapprox.(sum(r_dir.ŷ, dims = 1), 1, atol = 1.0f-5))
+    @test size(r_dir.epistemic) == (1, 5)
+    @test r_dir.aleatoric === nothing
+
+    # FDIR: ŷ = (α + τp)/(Σα + τ), both uncertainties present
+    m_fdir = Chain(Dense(3 => 10, relu), FDIR(10 => 4))
+    r_fdir = predictive(m_fdir, x)
+    p_fd = r_fdir.params
+    expected_mean = (p_fd.α .+ p_fd.τ .* p_fd.p) ./ (sum(p_fd.α, dims = 1) .+ p_fd.τ)
+    @test r_fdir.ŷ ≈ expected_mean
+    @test all(isapprox.(sum(r_fdir.ŷ, dims = 1), 1, atol = 1.0f-5))
+    @test size(r_fdir.epistemic) == (1, 5)
+    @test size(r_fdir.aleatoric) == (1, 5)
+
+    # MVE: ŷ = μ, epistemic is nothing
+    m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2))
+    r_mve = predictive(m_mve, x)
+    @test r_mve.ŷ == r_mve.params.μ
+    @test r_mve.epistemic === nothing
+    @test r_mve.aleatoric == r_mve.params.σ
+end
+
 @testset "Gradient flow" begin
     x = randn(Float32, 3, 5)
     y = randn(Float32, 2, 5)

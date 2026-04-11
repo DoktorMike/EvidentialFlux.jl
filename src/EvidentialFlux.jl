@@ -41,5 +41,7 @@ export aleatoric
 export epistemic
 export evidence
 export predict
+export predictive
+export predictive_mean
 
 end

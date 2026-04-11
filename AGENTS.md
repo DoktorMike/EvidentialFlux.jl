@@ -60,7 +60,9 @@ There are two internal patterns for layers:
 3. Define loss function(s) in `losses.jl`
 4. Add `epistemic(::Type{<:YourLayer}, ...)` and/or
    `aleatoric(::Type{<:YourLayer}, ...)` in `utils.jl`
-5. `predict` works automatically via generic dispatch
+5. Add `predictive_mean(::Type{<:YourLayer}, params)` in `utils.jl`
+6. Add a `predictive(::Type{<:YourLayer}, m, x)` method in `utils.jl`
+7. `predict` works automatically via generic dispatch
 
 ### Evidential framework pattern
 
@@ -93,6 +95,22 @@ Two patterns coexist:
 2. **Type-dispatched** (all layers): `epistemic(LayerType, params...)`,
    `aleatoric(LayerType, params...)`. The canonical API for new code.
    NIG/DIR/MVE type-dispatched methods delegate to the legacy implementations.
+
+### predict vs predictive
+
+Two prediction functions serve different use cases:
+
+- `predict(model, x)` — returns raw distributional parameters (NamedTuple
+  or array). Used in **training loops** where parameters feed directly into
+  loss functions.
+- `predictive(model, x)` — returns `(ŷ, epistemic, aleatoric, params)`.
+  Used at **inference time** for uncertainty-aware predictions. `ŷ` is the
+  posterior predictive mean in data space. Fields are `nothing` when a layer
+  doesn't support that uncertainty type (e.g. MVE has no epistemic).
+
+Both dispatch on `last_type(model)` to determine the layer type.
+`predictive_mean(LayerType, params)` is the internal helper that computes
+the data-space point prediction from raw parameters.
 
 ### Loss return shapes
 

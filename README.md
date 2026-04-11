@@ -52,8 +52,10 @@ provides generic `predict` and `split_params` dispatch.
 
 | Function | Description |
 |----------|-------------|
-| `predict(model, x)` | Unified prediction dispatch; returns a NamedTuple for NIG/MVE, raw array for DIR |
-| `split_params(LayerType, y)` | Generic output decomposition into a NamedTuple (e.g. `split_params(NIG, y)`) |
+| `predictive(model, x)` | Inference-time output: `(ŷ, epistemic, aleatoric, params)` |
+| `predictive_mean(Type, params)` | Point prediction in data space |
+| `predict(model, x)` | Raw distributional parameters (for training loops) |
+| `split_params(LayerType, y)` | Generic output decomposition into a NamedTuple |
 | `splitnig(y)` | Split concatenated NIG output into (γ, ν, α, β) |
 | `splitmve(y)` | Split concatenated MVE output into (μ, σ) |
 | `splitpg(y)` | Split concatenated PG output into (α, β) |
@@ -62,13 +64,38 @@ provides generic `predict` and `split_params` dispatch.
 | `evidence(ν, α)` | NIG total evidence: 2ν + α |
 | `evidence(α)` | DIR evidence: α - 1 |
 
-`predict` returns NamedTuples for NIG, PG, BNB, MVE, and FDIR, so you can
-access parameters by name or destructure them:
+### Inference with `predictive`
+
+For inference, use `predictive` to get the point prediction, uncertainties, and
+raw parameters in a single call:
 
 ```julia
-p = predict(model, x)
-p.γ   # access by name
-γ, ν, α, β = predict(model, x)  # destructuring still works
+r = predictive(model, x)
+r.ŷ          # point prediction in data space
+r.epistemic  # epistemic uncertainty (nothing if N/A)
+r.aleatoric  # aleatoric uncertainty (nothing if N/A)
+r.params     # raw distributional parameters for advanced use
+```
+
+The point prediction (`ŷ`) depends on the layer type:
+
+| Layer | `ŷ` | Formula |
+|-------|-----|---------|
+| NIG | Mean of posterior predictive (Student-T) | γ |
+| PG | Expected count | α/β |
+| BNB | Expected count at Beta mean | r·α/β |
+| DIR | Class probabilities | α/Σα |
+| FDIR | Class probabilities under FD | (α + τp)/(Σα + τ) |
+| MVE | Predicted mean | μ |
+
+### Training with `predict`
+
+For training, use `predict` which returns raw distributional parameters needed
+by the loss functions. These are NamedTuples you can destructure:
+
+```julia
+γ, ν, α, β = predict(model, x)  # NIG — destructure for loss computation
+loss = sum(nigloss(y, γ, ν, α, β))
 ```
 
 ### Uncertainty

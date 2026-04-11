@@ -338,3 +338,96 @@ last_type(m) = typeof(m)
 
 predict(::Type{T}, m, x) where {T <: AbstractEvidentialLayer} = split_params(T, m(x))
 predict(::Type{<:DIR}, m, x) = m(x)
+
+# --- Predictive mean (data-space point predictions) ---
+
+"""
+    predictive_mean(::Type{<:NIG}, params)
+    predictive_mean(::Type{<:PG}, params)
+    predictive_mean(::Type{<:BNB}, params)
+    predictive_mean(::Type{<:DIR}, params)
+    predictive_mean(::Type{<:FDIR}, params)
+    predictive_mean(::Type{<:MVE}, params)
+
+Returns the point prediction in data space given the raw distributional
+parameters. This is the mean of the posterior predictive distribution.
+"""
+predictive_mean(::Type{<:NIG}, p) = p.γ
+predictive_mean(::Type{<:PG}, p) = p.α ./ p.β
+predictive_mean(::Type{<:BNB}, p) = p.r .* p.α ./ p.β
+predictive_mean(::Type{<:DIR}, α) = α ./ sum(α, dims = 1)
+predictive_mean(::Type{<:FDIR}, p) = (p.α .+ p.τ .* p.p) ./ (sum(p.α, dims = 1) .+ p.τ)
+predictive_mean(::Type{<:MVE}, p) = p.μ
+
+# --- Predictive output (inference-time bundle) ---
+
+"""
+    predictive(m, x)
+
+Inference-time prediction returning a NamedTuple with:
+- `ŷ`: point prediction in data space (posterior predictive mean)
+- `epistemic`: epistemic uncertainty (`nothing` if not available for this layer)
+- `aleatoric`: aleatoric uncertainty (`nothing` if not available for this layer)
+- `params`: raw distributional parameters from `predict`
+
+Use `predict` during training (returns raw parameters for loss computation).
+Use `predictive` at inference time for a complete uncertainty-aware output.
+
+# Examples
+```julia
+r = predictive(model, x)
+r.ŷ          # point prediction
+r.epistemic  # model uncertainty
+r.aleatoric  # data noise
+r.params     # raw (γ, ν, α, β) etc. for advanced use
+```
+"""
+predictive(m, x) = predictive(last_type(m), m, x)
+
+function predictive(::Type{T}, m, x) where {T <: NIG}
+    p = predict(T, m, x)
+    return (ŷ = predictive_mean(T, p),
+        epistemic = epistemic(T, p.ν, p.α, p.β),
+        aleatoric = aleatoric(T, p.ν, p.α, p.β),
+        params = p)
+end
+
+function predictive(::Type{T}, m, x) where {T <: PG}
+    p = predict(T, m, x)
+    return (ŷ = predictive_mean(T, p),
+        epistemic = epistemic(T, p.α, p.β),
+        aleatoric = aleatoric(T, p.α, p.β),
+        params = p)
+end
+
+function predictive(::Type{T}, m, x) where {T <: BNB}
+    p = predict(T, m, x)
+    return (ŷ = predictive_mean(T, p),
+        epistemic = epistemic(T, p.r, p.α, p.β),
+        aleatoric = aleatoric(T, p.r, p.α, p.β),
+        params = p)
+end
+
+function predictive(::Type{T}, m, x) where {T <: DIR}
+    α = predict(T, m, x)
+    return (ŷ = predictive_mean(T, α),
+        epistemic = epistemic(T, α),
+        aleatoric = nothing,
+        params = α)
+end
+
+function predictive(::Type{T}, m, x) where {T <: FDIR}
+    p = predict(T, m, x)
+    return (ŷ = predictive_mean(T, p),
+        epistemic = epistemic(T, p.α, p.p, p.τ),
+        aleatoric = aleatoric(T, p.α, p.p, p.τ),
+        params = p)
+end
+
+function predictive(::Type{T}, m, x) where {T <: MVE}
+    p = predict(T, m, x)
+    return (ŷ = predictive_mean(T, p),
+        epistemic = nothing,
+        aleatoric = aleatoric(T, p.σ),
+        params = p)
+end
