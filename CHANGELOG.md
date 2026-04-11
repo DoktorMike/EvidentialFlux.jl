@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.7.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.6.0...v1.7.0) (2026-04-11)
+
+
+### Features
+
+* Added a new dirichlet loss for evidence correction by Pandey et. al. 2025 ([c220d75](https://github.com/DoktorMike/EvidentialFlux.jl/commit/c220d75b39246233559eb60d4d6dcdaf8c63f6d4))
+
+
+### Documentation
+
+* Rewrite of the README to introduce all use cases clearly. ([1bc831a](https://github.com/DoktorMike/EvidentialFlux.jl/commit/1bc831ab4c1ff5b45e6a55add5d28d47b89b4b77))
+
+
+### Other
+
+* big refactor adding an abstract evidential layer and building out helper functions. ([62be40f](https://github.com/DoktorMike/EvidentialFlux.jl/commit/62be40f0365a5ddc7f09402302706266da6de321))
+* clean up code and add a shitload of tests. ([d9e79b6](https://github.com/DoktorMike/EvidentialFlux.jl/commit/d9e79b68725c656efeabb965f1bb3960080dc223))
+
 ## [1.6.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.5.3...v1.6.0) (2025-11-09)
 
 
