@@ -8,6 +8,7 @@ using Test
     @test MVE <: AbstractEvidentialLayer
     @test FDIR <: AbstractEvidentialLayer
     @test PG <: AbstractEvidentialLayer
+    @test BNB <: AbstractEvidentialLayer
 end
 
 @testset "EvidentialFlux.jl - Classification" begin
@@ -82,6 +83,19 @@ end
     @test size(β) == (nout, 10)
 end
 
+@testset "EvidentialFlux.jl - BNB Count Regression" begin
+    ninp, nout = 3, 5
+    m = BNB(ninp => nout)
+    x = randn(Float32, 3, 10)
+    ŷ = m(x)
+    @test size(ŷ) == (3 * nout, 10)
+    r, α, β = splitbnb(ŷ)
+    @test all(>(0), r)
+    @test all(>(0), α)
+    @test all(>(0), β)
+    @test size(r) == (nout, 10)
+end
+
 @testset "EvidentialFlux.jl - FDIR Classification" begin
     ninp, nclasses = 3, 5
     m = FDIR(ninp => nclasses)
@@ -142,6 +156,18 @@ end
     @test q_pg.β == β_pg
     @test vcat(q_pg.α, q_pg.β) == y_pg
 
+    # BNB split_params returns NamedTuple
+    r_bnb = ones(Float32, nout, batch)
+    α_bnb = 2 * ones(Float32, nout, batch)
+    β_bnb = 3 * ones(Float32, nout, batch)
+    y_bnb = vcat(r_bnb, α_bnb, β_bnb)
+    q_bnb = split_params(BNB, y_bnb)
+    @test q_bnb isa NamedTuple{(:r, :α, :β)}
+    @test q_bnb.r == r_bnb
+    @test q_bnb.α == α_bnb
+    @test q_bnb.β == β_bnb
+    @test vcat(q_bnb.r, q_bnb.α, q_bnb.β) == y_bnb
+
     # MVE split_params returns NamedTuple
     μ = ones(Float32, nout, batch)
     σ = 2 * ones(Float32, nout, batch)
@@ -194,6 +220,18 @@ end
     @test β2 == β
 end
 
+@testset "splitbnb" begin
+    nout, batch = 3, 5
+    r = ones(Float32, nout, batch)
+    α = 2 * ones(Float32, nout, batch)
+    β = 3 * ones(Float32, nout, batch)
+    y = vcat(r, α, β)
+    r2, α2, β2 = splitbnb(y)
+    @test r2 == r
+    @test α2 == α
+    @test β2 == β
+end
+
 @testset "splitmve" begin
     nout, batch = 3, 5
     μ = ones(Float32, nout, batch)
@@ -210,6 +248,7 @@ end
     @test size(DIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (2, 5)
     @test size(MVE(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
     @test size(PG(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
+    @test size(BNB(3 => 2; bias = false)(randn(Float32, 3, 5))) == (6, 5)
     @test size(FDIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (5, 5)
 
     # 3D input (higher-dimensional reshape)
@@ -218,6 +257,7 @@ end
     @test size(DIR(3 => 2)(x3d)) == (2, 4, 5)
     @test size(MVE(3 => 2)(x3d)) == (4, 4, 5)
     @test size(PG(3 => 2)(x3d)) == (4, 4, 5)
+    @test size(BNB(3 => 2)(x3d)) == (6, 4, 5)
     @test size(FDIR(3 => 2)(x3d)) == (5, 4, 5)
 end
 
@@ -383,6 +423,25 @@ end
 
     # pgloss with λ=0 equals nllpg
     @test pgloss(y_counts, α_pg, β_pg, 0) ≈ nllpg(y_counts, α_pg, β_pg)
+
+    # nllbnb
+    r_bnb = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.5f0
+    α_bnb = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.5f0
+    β_bnb = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.5f0
+    nll_bnb = nllbnb(y_counts, r_bnb, α_bnb, β_bnb)
+    @test size(nll_bnb) == (nout_pg, batch_pg)
+    @test all(isfinite, nll_bnb)
+
+    # bnbloss
+    bl = bnbloss(y_counts, r_bnb, α_bnb, β_bnb)
+    @test size(bl) == (nout_pg, batch_pg)
+    @test all(isfinite, bl)
+
+    # bnbloss with λ=0 equals nllbnb
+    @test bnbloss(y_counts, r_bnb, α_bnb, β_bnb, 0) ≈ nllbnb(y_counts, r_bnb, α_bnb, β_bnb)
+
+    # nllbnb sanity: uniform Beta(1,1), r=1, y=0 should give NLL = log(2)
+    @test nllbnb(Float32[0;;], Float32[1;;], Float32[1;;], Float32[1;;]) ≈ Float32.(log(2) * ones(1, 1)) atol = 1.0f-5
 end
 
 @testset "predict" begin
@@ -437,6 +496,15 @@ end
     @test size(p_pg.β) == (2, 5)
     @test all(>(0), p_pg.α)
     @test all(>(0), p_pg.β)
+
+    # BNB predict returns NamedTuple with r, α, β
+    m_bnb = Chain(Dense(3 => 10, relu), BNB(10 => 2))
+    p_bnb = predict(m_bnb, x)
+    @test p_bnb isa NamedTuple{(:r, :α, :β)}
+    @test size(p_bnb.r) == (2, 5)
+    @test all(>(0), p_bnb.r)
+    @test all(>(0), p_bnb.α)
+    @test all(>(0), p_bnb.β)
 end
 
 @testset "Gradient flow" begin
@@ -511,6 +579,15 @@ end
     end
     @test isfinite(loss_pg)
     @test !isnothing(grads_pg[1])
+
+    # bnbloss
+    m_bnb = Chain(Dense(3 => 10, relu), BNB(10 => 2))
+    loss_bnb, grads_bnb = Flux.withgradient(m_bnb) do m
+        r, α, β = splitbnb(m(x))
+        sum(bnbloss(y_counts, r, α, β))
+    end
+    @test isfinite(loss_bnb)
+    @test !isnothing(grads_bnb[1])
 
     # mveloss
     m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2))

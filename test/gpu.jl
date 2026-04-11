@@ -36,6 +36,13 @@ using Test
     @test ŷ_pg isa CuArray
     @test all(>(0), Array(ŷ_pg))  # α, β both > 0
 
+    # BNB
+    m_bnb = BNB(3 => 2) |> gpu
+    ŷ_bnb = m_bnb(x)
+    @test size(ŷ_bnb) == (6, 10)
+    @test ŷ_bnb isa CuArray
+    @test all(>(0), Array(ŷ_bnb))  # r, α, β all > 0
+
     # FDIR
     m_fdir = FDIR(3 => 4) |> gpu
     ŷ_fdir = m_fdir(x)
@@ -61,6 +68,12 @@ end
     q_pg = split_params(PG, m_pg(x))
     @test q_pg.α isa CuArray
     @test size(q_pg.α) == (2, 10)
+
+    # BNB
+    m_bnb = BNB(3 => 2) |> gpu
+    q_bnb = split_params(BNB, m_bnb(x))
+    @test q_bnb.r isa CuArray
+    @test size(q_bnb.r) == (2, 10)
 
     # MVE
     m_mve = MVE(3 => 2) |> gpu
@@ -104,6 +117,13 @@ end
     @test r_pg isa NamedTuple{(:α, :β)}
     @test r_pg.α isa CuArray
     @test size(r_pg.α) == (2, 5)
+
+    # BNB predict
+    m_bnb = Chain(Dense(3 => 10, relu), BNB(10 => 2)) |> gpu
+    r_bnb = predict(m_bnb, x)
+    @test r_bnb isa NamedTuple{(:r, :α, :β)}
+    @test r_bnb.r isa CuArray
+    @test size(r_bnb.r) == (2, 5)
 
     # FDIR predict
     m_fdir = Chain(Dense(3 => 10, relu), FDIR(10 => 4)) |> gpu
@@ -180,6 +200,14 @@ end
     @test size(pl) == (nout, batch)
     @test all(isfinite, Array(pl))
 
+    # bnbloss
+    r_bnb = CUDA.rand(Float32, nout, batch) .+ 0.5f0
+    α_bnb = CUDA.rand(Float32, nout, batch) .+ 0.5f0
+    β_bnb = CUDA.rand(Float32, nout, batch) .+ 0.5f0
+    bl = bnbloss(y_counts, r_bnb, α_bnb, β_bnb)
+    @test size(bl) == (nout, batch)
+    @test all(isfinite, Array(bl))
+
     # mveloss
     μ = CUDA.randn(Float32, nout, batch)
     σ = CUDA.rand(Float32, nout, batch) .+ 0.1f0
@@ -251,6 +279,15 @@ end
     @test isfinite(loss_pg)
     @test !isnothing(grads_pg[1])
 
+    # bnbloss
+    m_bnb = Chain(Dense(3 => 10, relu), BNB(10 => 2)) |> gpu
+    loss_bnb, grads_bnb = Flux.withgradient(m_bnb) do m
+        r, α, β = splitbnb(m(x))
+        sum(bnbloss(y_counts, r, α, β))
+    end
+    @test isfinite(loss_bnb)
+    @test !isnothing(grads_bnb[1])
+
     # fdirloss
     y_oh_fd = cu(Float32.([1 0 1 0 0; 0 1 0 1 1]))
     m_fdir = Chain(Dense(3 => 10, relu), FDIR(10 => 2)) |> gpu
@@ -297,6 +334,12 @@ end
     m_pg = PG(3 => 2)
     ŷ_cpu = m_pg(x_cpu)
     ŷ_gpu = (m_pg |> gpu)(x_gpu)
+    @test Array(ŷ_gpu) ≈ ŷ_cpu atol = 1.0f-5
+
+    # BNB
+    m_bnb = BNB(3 => 2)
+    ŷ_cpu = m_bnb(x_cpu)
+    ŷ_gpu = (m_bnb |> gpu)(x_gpu)
     @test Array(ŷ_gpu) ≈ ŷ_cpu atol = 1.0f-5
 
     # FDIR

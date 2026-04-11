@@ -27,6 +27,7 @@ generic `predict` and `split_params` dispatch.
 |-------|----------|--------|-------------|
 | `NIG(in => out)` | Regression | γ, ν, α, β (4 × out) | Aleatoric + epistemic |
 | `PG(in => out)` | Count regression | α, β (2 × out) | Aleatoric + epistemic |
+| `BNB(in => out)` | Overdispersed count regression | r, α, β (3 × out) | Aleatoric + epistemic |
 | `DIR(in => out)` | Classification | Dirichlet concentrations (out) | Epistemic |
 | `FDIR(in => out)` | Classification | α, p, τ (2 × out + 1) | Aleatoric + epistemic |
 | `MVE(in => out)` | Regression | μ, σ (2 × out) | Aleatoric |
@@ -43,7 +44,9 @@ generic `predict` and `split_params` dispatch.
 | `dirmultloss(y, α)` | Dirichlet-Multinomial NLL for count vector targets (reuses `DIR` layer) |
 | `fdirloss(y, α, p, τ)` | Flexible Dirichlet loss (Yoon & Kim 2025) |
 | `pgloss(y, α, β, λ)` | Poisson-Gamma count regression loss (NLL + regularizer) |
+| `bnbloss(y, r, α, β, λ)` | Beta-Negative Binomial count regression loss (NLL + regularizer) |
 | `nllpg(y, α, β)` | Negative Binomial marginal NLL |
+| `nllbnb(y, r, α, β)` | Beta-Negative Binomial marginal NLL |
 | `mveloss(y, μ, σ)` | Gaussian negative log-likelihood |
 | `nllstudent(y, γ, ν, α, β)` | Student-T negative log-likelihood |
 
@@ -56,6 +59,7 @@ generic `predict` and `split_params` dispatch.
 | `splitnig(y)` | Split concatenated NIG output into (γ, ν, α, β) |
 | `splitmve(y)` | Split concatenated MVE output into (μ, σ) |
 | `splitpg(y)` | Split concatenated PG output into (α, β) |
+| `splitbnb(y)` | Split concatenated BNB output into (r, α, β) |
 | `splitfdir(y)` | Split concatenated FDIR output into (α, p, τ) |
 | `uncertainty(ν, α, β)` | Epistemic uncertainty: β / (ν(α-1)) |
 | `uncertainty(α, β)` | Aleatoric uncertainty: β / (α-1) |

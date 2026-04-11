@@ -305,3 +305,47 @@ function pgloss(y, α, β, λ = 1)
     reg = abs.(y .- α ./ β) .* α
     return nll .+ λ .* reg
 end
+
+"""
+    nllbnb(y, r, α, β)
+
+Negative log-likelihood of the Beta-Negative Binomial marginal obtained by
+integrating out `p ~ Beta(α, β)` from `NB(y | r, p)`:
+
+    p(y|r,α,β) = [Γ(y+r)/(Γ(y+1)Γ(r))] · B(y+α, r+β) / B(α, β)
+
+Use this with the `BNB` layer for evidential overdispersed count regression.
+
+# Arguments:
+- `y`: non-negative count targets, shape `(O, B)`
+- `r`: NB dispersion parameter (> 0), shape `(O, B)`
+- `α`: Beta shape parameter (> 0), shape `(O, B)`
+- `β`: Beta shape parameter (> 0), shape `(O, B)`
+"""
+function nllbnb(y, r, α, β)
+    logΓ = SpecialFunctions.loggamma
+    return logΓ.(y .+ 1) .+ logΓ.(r) .- logΓ.(y .+ r) .+
+        logΓ.(y .+ α .+ r .+ β) .+ logΓ.(α) .+ logΓ.(β) .-
+        logΓ.(y .+ α) .- logΓ.(r .+ β) .- logΓ.(α .+ β)
+end
+
+"""
+    bnbloss(y, r, α, β, λ = 1)
+
+Loss for Beta-Negative Binomial evidential count regression. Combines the
+Beta-NB NLL (from `nllbnb`) with a regularizer that penalizes high confidence
+(large α+β) when the predicted count `r·α/β` is far from the observed count.
+
+# Arguments:
+- `y`: non-negative count targets, shape `(O, B)`
+- `r`: NB dispersion parameter (> 0) from a BNB layer, shape `(O, B)`
+- `α`: Beta shape parameter (> 0) from a BNB layer, shape `(O, B)`
+- `β`: Beta shape parameter (> 0) from a BNB layer, shape `(O, B)`
+- `λ`: regularization weight (default: 1)
+"""
+function bnbloss(y, r, α, β, λ = 1)
+    nll = nllbnb(y, r, α, β)
+    ŷ = r .* α ./ β
+    reg = abs.(y .- ŷ) .* (α .+ β)
+    return nll .+ λ .* reg
+end

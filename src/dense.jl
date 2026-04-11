@@ -127,6 +127,54 @@ end
 (a::PG)(x::AbstractArray) = _reshape_call(a, x)
 
 """
+    BNB(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
+    BNB(W::AbstractMatrix, [bias, σ])
+
+Create a fully connected layer which implements a Beta-Negative Binomial
+evidential model for overdispersed count regression. Places a Beta(α, β) prior
+over the Negative Binomial success probability `p`, with a learned dispersion
+parameter `r`.
+
+The output has shape `(out*3, batch...)` containing `[r, α, β]` stacked
+vertically, where all three are passed through `σ` to ensure positivity.
+
+Use with `bnbloss` for training and `splitbnb` / `split_params(BNB, y)` to
+decompose the output. The predicted count at the Beta mean is `r·α/β`.
+
+# Arguments:
+- `(in, out)`: number of input features and output count targets
+- `σ`: activation ensuring positivity (default: softplus)
+- `init`: weight initialisation function (default: `glorot_uniform`)
+- `bias`: whether to include a trainable bias vector
+"""
+struct BNB{F, M <: AbstractMatrix, B} <: AbstractEvidentialLayer
+    W::M
+    b::B
+    σ::F
+    function BNB(W::M, b = true, σ::F = NNlib.softplus) where {M <: AbstractMatrix, F}
+        b = Flux.create_bias(W, b, size(W, 1))
+        return new{F, M, typeof(b)}(W, b, σ)
+    end
+end
+
+function BNB(
+        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+        init = Flux.glorot_uniform, bias = true
+    )
+    return BNB(init(out * 3, in), bias, σ)
+end
+
+Flux.@layer BNB
+
+function (a::BNB)(x::AbstractVecOrMat)
+    o = a.W * x .+ a.b
+    r_raw, α_raw, β_raw = _split_equal(o, 3)
+    return vcat(a.σ.(r_raw), a.σ.(α_raw), a.σ.(β_raw))
+end
+
+(a::BNB)(x::AbstractArray) = _reshape_call(a, x)
+
+"""
     DIR(in => out; bias=true, init=Flux.glorot_uniform)
     DIR(W::AbstractMatrix, [bias])
 

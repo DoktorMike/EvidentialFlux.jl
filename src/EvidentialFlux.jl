@@ -9,6 +9,7 @@ include("dense.jl")
 export AbstractEvidentialLayer
 export NIG
 export PG
+export BNB
 export DIR
 export MVE
 export FDIR
@@ -23,6 +24,8 @@ export dirmultloss
 export fdirloss
 export nllpg
 export pgloss
+export nllbnb
+export bnbloss
 export mveloss
 export nllstudent
 
@@ -32,6 +35,7 @@ export splitnig
 export splitmve
 export splitfdir
 export splitpg
+export splitbnb
 export uncertainty
 export aleatoric
 export epistemic

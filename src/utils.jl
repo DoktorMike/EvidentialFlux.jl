@@ -15,6 +15,10 @@ Wrap DIR layer output into a NamedTuple `(α,)`.
 
 Split PG layer output into a NamedTuple `(α, β)`.
 
+    split_params(::Type{<:BNB}, y)
+
+Split BNB layer output into a NamedTuple `(r, α, β)`.
+
     split_params(::Type{<:FDIR}, y)
 
 Split FDIR layer output into a NamedTuple `(α, p, τ)`.
@@ -26,6 +30,9 @@ split_params(::Type{<:NIG}, y) = let (γ, ν, α, β) = _split_equal(y, 4)
 end
 split_params(::Type{<:PG}, y) = let (α, β) = _split_equal(y, 2)
     (α = α, β = β)
+end
+split_params(::Type{<:BNB}, y) = let (r, α, β) = _split_equal(y, 3)
+    (r = r, α = α, β = β)
 end
 split_params(::Type{<:MVE}, y) = let (μ, σ) = _split_equal(y, 2)
     (μ = μ, σ = σ)
@@ -96,6 +103,20 @@ The input `y` should have shape `(nout*2, batch...)`.
 - `(α, β)`: tuple of arrays each with shape `(nout, batch...)`
 """
 splitpg(y) = let p = split_params(PG, y); (p.α, p.β) end
+
+"""
+    splitbnb(y)
+
+Splits the concatenated output of a BNB layer into its three components: r, α, β.
+The input `y` should have shape `(nout*3, batch...)`.
+
+# Arguments:
+- `y`: the concatenated BNB output with shape `(nout*3, batch...)`
+
+# Returns:
+- `(r, α, β)`: tuple of arrays each with shape `(nout, batch...)`
+"""
+splitbnb(y) = let p = split_params(BNB, y); (p.r, p.α, p.β) end
 
 """
     uncertainty(ν, α, β)
