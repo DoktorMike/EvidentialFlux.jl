@@ -10,6 +10,7 @@ export AbstractEvidentialLayer
 export NIG
 export DIR
 export MVE
+export FDIR
 
 include("losses.jl")
 export nigloss
@@ -17,6 +18,7 @@ export nigloss2
 export nigloss3
 export dirloss
 export dirloss2
+export fdirloss
 export mveloss
 export nllstudent
 
@@ -24,6 +26,7 @@ include("utils.jl")
 export split_params
 export splitnig
 export splitmve
+export splitfdir
 export uncertainty
 export aleatoric
 export epistemic

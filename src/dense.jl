@@ -181,3 +181,51 @@ function (a::MVE)(x::AbstractVecOrMat)
 end
 
 (a::MVE)(x::AbstractArray) = _reshape_call(a, x)
+
+"""
+    FDIR(in => out; bias=true, init=Flux.glorot_uniform)
+
+Create a Flexible Dirichlet evidential layer from Yoon & Kim, "Uncertainty
+Estimation by Flexible Evidential Deep Learning" (2025). Predicts the parameters
+of a Flexible Dirichlet (FD) distribution, a mixture of Dirichlets that
+generalizes the standard Dirichlet used by `DIR`.
+
+The layer has three output heads from a shared input:
+- `α` (out): Gamma concentration parameters via `exp` (α > 0)
+- `p` (out): allocation probabilities via `softmax` (Σp = 1)
+- `τ` (1): shared dispersion via `softplus` (τ > 0)
+
+The output shape is `(out*2 + 1, batch...)`. Use `split_params(FDIR, y)` or
+`splitfdir(y)` to decompose the output into `(α, p, τ)`.
+
+Standard Dirichlet EDL is a special case when τ=1 and p_k = α_k/Σα.
+
+# Arguments:
+- `(in, out)`: number of input features and output classes
+- `init`: weight initialisation function (default: `glorot_uniform`)
+- `bias`: whether to include trainable bias vectors
+"""
+struct FDIR{T <: Chain} <: AbstractEvidentialLayer
+    chain::T
+end
+
+function FDIR((in, out)::Pair{<:Integer, <:Integer}; init = Flux.glorot_uniform, bias = true)
+    return FDIR(
+        Chain(
+            Parallel(
+                vcat,
+                αw = Dense(in => out, exp, bias = bias, init = init),
+                pw = Chain(Dense(in => out, bias = bias, init = init), NNlib.softmax),
+                τw = Dense(in => 1, NNlib.softplus, bias = bias, init = init)
+            )
+        )
+    )
+end
+
+Flux.@layer FDIR
+
+function (a::FDIR)(x::AbstractVecOrMat)
+    return a.chain(x)
+end
+
+(a::FDIR)(x::AbstractArray) = _reshape_call(a, x)

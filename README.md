@@ -27,6 +27,7 @@ generic `predict` and `split_params` dispatch.
 |-------|----------|--------|-------------|
 | `NIG(in => out)` | Regression | γ, ν, α, β (4 × out) | Aleatoric + epistemic |
 | `DIR(in => out)` | Classification | Dirichlet concentrations (out) | Epistemic |
+| `FDIR(in => out)` | Classification | α, p, τ (2 × out + 1) | Aleatoric + epistemic |
 | `MVE(in => out)` | Regression | μ, σ (2 × out) | Aleatoric |
 
 ### Loss functions
@@ -38,6 +39,7 @@ generic `predict` and `split_params` dispatch.
 | `nigloss3(y, γ, ν, α, β, λ, λ₁)` | Uncertainty regularized loss (Ye et al. 2024) |
 | `dirloss(y, α, t)` | Dirichlet classification loss with KL regularization, returns `(1, B)` |
 | `dirloss2(y, α, t)` | Dirichlet loss + correct evidence regularization (Pandey et al. 2025) |
+| `fdirloss(y, α, p, τ)` | Flexible Dirichlet loss (Yoon & Kim 2025) |
 | `mveloss(y, μ, σ)` | Gaussian negative log-likelihood |
 | `nllstudent(y, γ, ν, α, β)` | Student-T negative log-likelihood |
 
@@ -49,6 +51,7 @@ generic `predict` and `split_params` dispatch.
 | `split_params(LayerType, y)` | Generic output decomposition into a NamedTuple (e.g. `split_params(NIG, y)`) |
 | `splitnig(y)` | Split concatenated NIG output into (γ, ν, α, β) |
 | `splitmve(y)` | Split concatenated MVE output into (μ, σ) |
+| `splitfdir(y)` | Split concatenated FDIR output into (α, p, τ) |
 | `uncertainty(ν, α, β)` | Epistemic uncertainty: β / (ν(α-1)) |
 | `uncertainty(α, β)` | Aleatoric uncertainty: β / (α-1) |
 | `uncertainty(α)` | DIR epistemic uncertainty: K / Σα |
@@ -196,6 +199,7 @@ distribution supports them.
 - Ye, K., Chen, T., Wei, H. & Zhan, L. Uncertainty Regularized Evidential Regression. AAAI 38 (2024).
 - Sensoy, M., Kaplan, L. & Kandemir, M. Evidential Deep Learning to Quantify Classification Uncertainty. NeurIPS (2018).
 - Pandey, D. S., Choi, H. & Yu, Q. Generalized Regularized Evidential Deep Learning Models. arXiv (2025).
+- Yoon, T. & Kim, H. Uncertainty Estimation by Flexible Evidential Deep Learning. arXiv (2025).
 
 ## Summary
 

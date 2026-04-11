@@ -6,6 +6,7 @@ using Test
     @test NIG <: AbstractEvidentialLayer
     @test DIR <: AbstractEvidentialLayer
     @test MVE <: AbstractEvidentialLayer
+    @test FDIR <: AbstractEvidentialLayer
 end
 
 @testset "EvidentialFlux.jl - Classification" begin
@@ -67,6 +68,24 @@ end
     @test ŷ[6:10, :] == abs.(ŷ[6:10, :])
 end
 
+@testset "EvidentialFlux.jl - FDIR Classification" begin
+    ninp, nclasses = 3, 5
+    m = FDIR(ninp => nclasses)
+    x = randn(Float32, 3, 10)
+    ŷ = m(x)
+    @test size(ŷ) == (2 * nclasses + 1, 10)
+    α, p, τ = splitfdir(ŷ)
+    # α > 0 (exp activation)
+    @test all(>(0), α)
+    # p sums to 1 per sample (softmax)
+    @test all(isapprox.(sum(p, dims = 1), 1, atol = 1.0f-5))
+    # τ > 0 (softplus activation)
+    @test all(>(0), τ)
+    @test size(α) == (nclasses, 10)
+    @test size(p) == (nclasses, 10)
+    @test size(τ) == (1, 10)
+end
+
 @testset "splitnig" begin
     nout, batch = 3, 5
     γ = ones(Float32, nout, batch)
@@ -114,6 +133,31 @@ end
     r = split_params(DIR, α_dir)
     @test r isa NamedTuple{(:α,)}
     @test r.α == α_dir
+
+    # FDIR split_params returns NamedTuple with α, p, τ
+    K = nout
+    α_fd = ones(Float32, K, batch)
+    p_fd = ones(Float32, K, batch) ./ K
+    τ_fd = 2 * ones(Float32, 1, batch)
+    y_fd = vcat(α_fd, p_fd, τ_fd)
+    s = split_params(FDIR, y_fd)
+    @test s isa NamedTuple{(:α, :p, :τ)}
+    @test s.α == α_fd
+    @test s.p == p_fd
+    @test s.τ == τ_fd
+    @test vcat(s.α, s.p, s.τ) == y_fd
+end
+
+@testset "splitfdir" begin
+    K, batch = 3, 5
+    α = ones(Float32, K, batch)
+    p = ones(Float32, K, batch) ./ K
+    τ = 2 * ones(Float32, 1, batch)
+    y = vcat(α, p, τ)
+    α2, p2, τ2 = splitfdir(y)
+    @test α2 == α
+    @test p2 == p
+    @test τ2 == τ
 end
 
 @testset "splitmve" begin
@@ -131,12 +175,14 @@ end
     @test size(NIG(3 => 2; bias = false)(randn(Float32, 3, 5))) == (8, 5)
     @test size(DIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (2, 5)
     @test size(MVE(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
+    @test size(FDIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (5, 5)
 
     # 3D input (higher-dimensional reshape)
     x3d = randn(Float32, 3, 4, 5)
     @test size(NIG(3 => 2)(x3d)) == (8, 4, 5)
     @test size(DIR(3 => 2)(x3d)) == (2, 4, 5)
     @test size(MVE(3 => 2)(x3d)) == (4, 4, 5)
+    @test size(FDIR(3 => 2)(x3d)) == (5, 4, 5)
 end
 
 @testset "Utility functions" begin
@@ -241,6 +287,19 @@ end
     ml2 = mveloss(y, μ, σ, 0.5f0)
     @test size(ml2) == (nout, batch)
     @test all(isfinite, ml2)
+
+    # fdirloss
+    nclasses_fd = 3
+    y_oh_fd = Float32.([1 0 0 1 0; 0 1 0 0 1; 0 0 1 0 0])
+    α_fd = abs.(randn(Float32, nclasses_fd, 5)) .+ 0.5f0
+    p_fd = abs.(randn(Float32, nclasses_fd, 5))
+    p_fd = p_fd ./ sum(p_fd, dims = 1)  # normalize to simplex
+    τ_fd = abs.(randn(Float32, 1, 5)) .+ 0.1f0
+    fl = fdirloss(y_oh_fd, α_fd, p_fd, τ_fd)
+    @test size(fl) == (1, 5)
+    @test all(isfinite, fl)
+    # loss is non-negative (sum of squared terms + Brier score)
+    @test all(≥(0), fl)
 end
 
 @testset "predict" begin
@@ -275,6 +334,17 @@ end
     α = predict(m_dir, x)
     @test size(α) == (4, 5)
     @test all(≥(1), α)
+
+    # FDIR predict returns NamedTuple with α, p, τ
+    m_fdir = Chain(Dense(3 => 10, relu), FDIR(10 => 4))
+    p_fdir = predict(m_fdir, x)
+    @test p_fdir isa NamedTuple{(:α, :p, :τ)}
+    @test size(p_fdir.α) == (4, 5)
+    @test size(p_fdir.p) == (4, 5)
+    @test size(p_fdir.τ) == (1, 5)
+    @test all(>(0), p_fdir.α)
+    @test all(>(0), p_fdir.τ)
+    @test all(isapprox.(sum(p_fdir.p, dims = 1), 1, atol = 1.0f-5))
 end
 
 @testset "Gradient flow" begin
@@ -321,6 +391,16 @@ end
     end
     @test isfinite(loss_d2)
     @test !isnothing(grads_d2[1])
+
+    # fdirloss
+    y_oh_fd = Float32.([1 0 1 0 0; 0 1 0 1 1])
+    m_fdir = Chain(Dense(3 => 10, relu), FDIR(10 => 2))
+    loss_fd, grads_fd = Flux.withgradient(m_fdir) do m
+        α, p, τ = splitfdir(m(x))
+        sum(fdirloss(y_oh_fd, α, p, τ))
+    end
+    @test isfinite(loss_fd)
+    @test !isnothing(grads_fd[1])
 
     # mveloss
     m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2))

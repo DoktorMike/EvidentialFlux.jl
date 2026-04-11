@@ -28,6 +28,16 @@ using Test
     @test size(ŷ_mve) == (4, 10)
     @test ŷ_mve isa CuArray
     @test all(>(0), Array(ŷ_mve[3:4, :]))  # σ > 0
+
+    # FDIR
+    m_fdir = FDIR(3 => 4) |> gpu
+    ŷ_fdir = m_fdir(x)
+    @test size(ŷ_fdir) == (9, 10)
+    @test ŷ_fdir isa CuArray
+    α_fd, p_fd, τ_fd = splitfdir(Array(ŷ_fdir))
+    @test all(>(0), α_fd)
+    @test all(>(0), τ_fd)
+    @test all(isapprox.(sum(p_fd, dims = 1), 1, atol = 1.0f-5))
 end
 
 @testset "GPU - split_params" begin
@@ -44,6 +54,13 @@ end
     q = split_params(MVE, m_mve(x))
     @test q.μ isa CuArray
     @test size(q.μ) == (2, 10)
+
+    # FDIR
+    m_fdir = FDIR(3 => 4) |> gpu
+    r = split_params(FDIR, m_fdir(x))
+    @test r.α isa CuArray
+    @test size(r.α) == (4, 10)
+    @test size(r.τ) == (1, 10)
 end
 
 @testset "GPU - predict" begin
@@ -67,6 +84,14 @@ end
     α = predict(m_dir, x)
     @test α isa CuArray
     @test size(α) == (4, 5)
+
+    # FDIR predict
+    m_fdir = Chain(Dense(3 => 10, relu), FDIR(10 => 4)) |> gpu
+    r = predict(m_fdir, x)
+    @test r isa NamedTuple{(:α, :p, :τ)}
+    @test r.α isa CuArray
+    @test size(r.α) == (4, 5)
+    @test size(r.τ) == (1, 5)
 end
 
 @testset "GPU - Loss functions" begin
@@ -109,6 +134,17 @@ end
     dl2 = dirloss2(y_oh, α_dir, 1)
     @test size(dl2) == (1, 5)
     @test all(isfinite, Array(dl2))
+
+    # fdirloss
+    nclasses_fd = 3
+    y_oh_fd = cu(Float32.([1 0 0 1 0; 0 1 0 0 1; 0 0 1 0 0]))
+    α_fd = CUDA.rand(Float32, nclasses_fd, 5) .+ 0.5f0
+    p_fd = CUDA.rand(Float32, nclasses_fd, 5)
+    p_fd = p_fd ./ sum(p_fd, dims = 1)
+    τ_fd = CUDA.rand(Float32, 1, 5) .+ 0.1f0
+    fl = fdirloss(y_oh_fd, α_fd, p_fd, τ_fd)
+    @test size(fl) == (1, 5)
+    @test all(isfinite, Array(fl))
 
     # mveloss
     μ = CUDA.randn(Float32, nout, batch)
@@ -163,6 +199,16 @@ end
     @test isfinite(loss_d2)
     @test !isnothing(grads_d2[1])
 
+    # fdirloss
+    y_oh_fd = cu(Float32.([1 0 1 0 0; 0 1 0 1 1]))
+    m_fdir = Chain(Dense(3 => 10, relu), FDIR(10 => 2)) |> gpu
+    loss_fd, grads_fd = Flux.withgradient(m_fdir) do m
+        α, p, τ = splitfdir(m(x))
+        sum(fdirloss(y_oh_fd, α, p, τ))
+    end
+    @test isfinite(loss_fd)
+    @test !isnothing(grads_fd[1])
+
     # mveloss
     m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2)) |> gpu
     loss_m, grads_m = Flux.withgradient(m_mve) do m
@@ -193,5 +239,11 @@ end
     m_mve = MVE(3 => 2)
     ŷ_cpu = m_mve(x_cpu)
     ŷ_gpu = (m_mve |> gpu)(x_gpu)
+    @test Array(ŷ_gpu) ≈ ŷ_cpu atol = 1.0f-5
+
+    # FDIR
+    m_fdir = FDIR(3 => 4)
+    ŷ_cpu = m_fdir(x_cpu)
+    ŷ_gpu = (m_fdir |> gpu)(x_gpu)
     @test Array(ŷ_gpu) ≈ ŷ_cpu atol = 1.0f-5
 end

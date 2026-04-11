@@ -10,6 +10,12 @@ Split MVE layer output into a NamedTuple `(μ, σ)`.
     split_params(::Type{<:DIR}, y)
 
 Wrap DIR layer output into a NamedTuple `(α,)`.
+
+    split_params(::Type{<:FDIR}, y)
+
+Split FDIR layer output into a NamedTuple `(α, p, τ)`.
+The first K rows are α, the next K rows are p, and the last row is τ,
+where `K = (size(y,1) - 1) ÷ 2`.
 """
 split_params(::Type{<:NIG}, y) = let (γ, ν, α, β) = _split_equal(y, 4)
     (γ = γ, ν = ν, α = α, β = β)
@@ -18,6 +24,13 @@ split_params(::Type{<:MVE}, y) = let (μ, σ) = _split_equal(y, 2)
     (μ = μ, σ = σ)
 end
 split_params(::Type{<:DIR}, y) = (α = y,)
+function split_params(::Type{<:FDIR}, y)
+    K = (size(y, 1) - 1) ÷ 2
+    α = y[1:K, :]
+    p = y[(K + 1):(2 * K), :]
+    τ = y[(2 * K + 1):(2 * K + 1), :]
+    return (α = α, p = p, τ = τ)
+end
 
 """
     splitnig(y)
@@ -48,6 +61,20 @@ output neurons.
 - `(μ, σ)`: tuple of arrays each with shape `(nout, batch...)`
 """
 splitmve(y) = let p = split_params(MVE, y); (p.μ, p.σ) end
+
+"""
+    splitfdir(y)
+
+Splits the concatenated output of an FDIR layer into its three components: α, p, τ.
+The input `y` should have shape `(K*2 + 1, batch...)` where `K` is the number of classes.
+
+# Arguments:
+- `y`: the concatenated FDIR output with shape `(K*2 + 1, batch...)`
+
+# Returns:
+- `(α, p, τ)`: tuple where α and p have shape `(K, batch...)` and τ has shape `(1, batch...)`
+"""
+splitfdir(y) = let r = split_params(FDIR, y); (r.α, r.p, r.τ) end
 
 """
     uncertainty(ν, α, β)

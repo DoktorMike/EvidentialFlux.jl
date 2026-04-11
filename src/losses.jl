@@ -201,3 +201,38 @@ This loss should be used with the MVE network type.
 - `β`: used to increase or decrease the effect of the predicted variance on the loss
 """
 mveloss(y, μ, σ, β) = mveloss(y, μ, σ) .* ignore_derivatives(σ) .^ β
+
+"""
+    fdirloss(y, α, p, τ)
+
+Loss for the Flexible Dirichlet EDL model from Yoon & Kim, "Uncertainty
+Estimation by Flexible Evidential Deep Learning" (2025).
+
+Computes the expected Brier score under the Flexible Dirichlet distribution
+plus a Brier score regularizer on the allocation probabilities `p`. The FD
+distribution is a mixture of Dirichlets `Σⱼ pⱼ Dir(α + τeⱼ)`, and the loss
+decomposes analytically as:
+
+    ℒ = Σₖ [E_FD[πₖ²] - 2yₖ E[πₖ] + yₖ] + ‖y - p‖²
+
+No manual hyperparameter tuning is needed for the regularization (unlike the
+KL-based regularizer in `dirloss`).
+
+# Arguments:
+- `y`: one-hot encoded targets, shape `(K, B)`
+- `α`: Gamma concentration parameters (> 0) from an FDIR layer, shape `(K, B)`
+- `p`: allocation probabilities (Σp = 1) from an FDIR layer, shape `(K, B)`
+- `τ`: shared dispersion parameter (> 0) from an FDIR layer, shape `(1, B)`
+"""
+function fdirloss(y, α, p, τ)
+    S = sum(α, dims = 1) .+ τ                                          # (1, B)
+    # E[πₖ²] under the FD mixture of Dirichlets
+    Eπ² = (α .* (α .+ 1) .+ p .* τ .* (2 .* α .+ τ .+ 1)) ./ (S .* (S .+ 1))
+    # E[πₖ] under FD
+    μ = (α .+ τ .* p) ./ S
+    # Expected Brier score: Σₖ [E[πₖ²] - 2·yₖ·E[πₖ] + yₖ]
+    evid = sum(Eπ² .- 2 .* y .* μ .+ y, dims = 1)                     # (1, B)
+    # Brier score regularizer on allocation probabilities
+    brier = sum((y .- p) .^ 2, dims = 1)                               # (1, B)
+    return evid .+ brier
+end
