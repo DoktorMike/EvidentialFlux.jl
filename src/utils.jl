@@ -204,6 +204,121 @@ Evidential Regression.' arXiv, May 20, 2022. http://arxiv.org/abs/2205.10060.
 """
 epistemic(ν) = 1 ./ sqrt.(ν)
 
+# --- Type-dispatched uncertainty ---
+
+"""
+    epistemic(::Type{<:NIG}, ν, α, β)
+
+Epistemic uncertainty for the NIG model: `1/√ν` (Meinert et al. 2022).
+"""
+epistemic(::Type{<:NIG}, ν, α, β) = epistemic(ν)
+
+"""
+    aleatoric(::Type{<:NIG}, ν, α, β)
+
+Aleatoric uncertainty for the NIG model: the Student-T standard deviation
+`σ_St = β(1+ν)/(να)` (Meinert et al. 2022).
+"""
+aleatoric(::Type{<:NIG}, ν, α, β) = aleatoric(ν, α, β)
+
+"""
+    uncertainty(::Type{<:NIG}, ν, α, β)
+
+Epistemic uncertainty for the NIG model: `Var[μ] = β/(ν(α-1))`.
+"""
+uncertainty(::Type{<:NIG}, ν, α, β) = uncertainty(ν, α, β)
+
+"""
+    epistemic(::Type{<:DIR}, α)
+
+Epistemic uncertainty for the Dirichlet model: `K/Σα`.
+"""
+epistemic(::Type{<:DIR}, α) = uncertainty(α)
+
+"""
+    epistemic(::Type{<:MVE}, σ)
+
+Aleatoric uncertainty for the MVE model: the predicted variance `σ` itself.
+MVE has no epistemic uncertainty — it only models aleatoric.
+"""
+aleatoric(::Type{<:MVE}, σ) = σ
+
+"""
+    epistemic(::Type{<:PG}, α, β)
+
+Epistemic uncertainty for the Poisson-Gamma model: the variance of the
+Poisson rate under the Gamma prior, `Var[λ] = α/β²`.
+"""
+epistemic(::Type{<:PG}, α, β) = @. α / β^2
+
+"""
+    aleatoric(::Type{<:PG}, α, β)
+
+Aleatoric uncertainty for the Poisson-Gamma model: the expected Poisson
+variance, `E[Var[Y|λ]] = E[λ] = α/β`.
+"""
+aleatoric(::Type{<:PG}, α, β) = @. α / β
+
+"""
+    epistemic(::Type{<:BNB}, r, α, β)
+
+Epistemic uncertainty for the Beta-Negative Binomial model: the variance of
+the conditional mean `E[Y|p] = rp/(1-p)` under the Beta prior.
+
+    Var[E[Y|p]] = r²·α(α+β-1) / ((β-1)²(β-2))
+
+Requires β > 2 for the moments to exist; β is clamped internally.
+"""
+function epistemic(::Type{<:BNB}, r, α, β)
+    β_c = max.(β, 2 .+ eps(eltype(β)))
+    return @. r^2 * α * (α + β_c - 1) / ((β_c - 1)^2 * (β_c - 2))
+end
+
+"""
+    aleatoric(::Type{<:BNB}, r, α, β)
+
+Aleatoric uncertainty for the Beta-Negative Binomial model: the expected
+NB variance under the Beta prior.
+
+    E[Var[Y|p]] = r·α(α+β-1) / ((β-1)(β-2))
+
+Requires β > 2 for the moments to exist; β is clamped internally.
+"""
+function aleatoric(::Type{<:BNB}, r, α, β)
+    β_c = max.(β, 2 .+ eps(eltype(β)))
+    return @. r * α * (α + β_c - 1) / ((β_c - 1) * (β_c - 2))
+end
+
+"""
+    epistemic(::Type{<:FDIR}, α, p, τ)
+
+Epistemic uncertainty for the Flexible Dirichlet model (Yoon & Kim 2025).
+Returns a `(1, B)` scalar per sample:
+
+    EU = Σₖ [μₖ(1-μₖ)/(S+1) + τ²pₖ(1-pₖ)/(S(S+1))]
+
+where `μₖ = (αₖ+τpₖ)/S` and `S = Σαₖ + τ`.
+"""
+function epistemic(::Type{<:FDIR}, α, p, τ)
+    S = sum(α, dims = 1) .+ τ
+    μ = (α .+ τ .* p) ./ S
+    return sum(μ .* (1 .- μ) ./ (S .+ 1) .+ τ .^ 2 .* p .* (1 .- p) ./ (S .* (S .+ 1)), dims = 1)
+end
+
+"""
+    aleatoric(::Type{<:FDIR}, α, p, τ)
+
+Aleatoric uncertainty for the Flexible Dirichlet model: `AU = TU - EU` where
+`TU = 1 - Σₖ μₖ²` is the total uncertainty. Returns `(1, B)`.
+"""
+function aleatoric(::Type{<:FDIR}, α, p, τ)
+    S = sum(α, dims = 1) .+ τ
+    μ = (α .+ τ .* p) ./ S
+    tu = 1 .- sum(μ .^ 2, dims = 1)
+    eu = epistemic(FDIR, α, p, τ)
+    return tu .- eu
+end
+
 """
     predict(m, x)
 

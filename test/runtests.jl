@@ -295,6 +295,68 @@ end
     # epistemic(ν)
     ν = [4.0 9.0]
     @test epistemic(ν) ≈ [0.5 1 / 3]
+
+    # --- Type-dispatched uncertainty ---
+
+    # NIG type-dispatched: delegates to existing arity-dispatched methods
+    ν_td = [2.0 4.0]
+    α_td = [3.0 5.0]
+    β_td = [4.0 8.0]
+    @test epistemic(NIG, ν_td, α_td, β_td) ≈ epistemic(ν_td)
+    @test aleatoric(NIG, ν_td, α_td, β_td) ≈ aleatoric(ν_td, α_td, β_td)
+    @test uncertainty(NIG, ν_td, α_td, β_td) ≈ uncertainty(ν_td, α_td, β_td)
+
+    # DIR type-dispatched
+    α_dir_td = [2.0 3.0; 3.0 7.0]
+    @test epistemic(DIR, α_dir_td) ≈ uncertainty(α_dir_td)
+
+    # MVE type-dispatched: aleatoric is just σ
+    σ_mve = Float32.([0.5 1.0; 0.3 0.8])
+    @test aleatoric(MVE, σ_mve) == σ_mve
+
+    # PG: epistemic = α/β², aleatoric = α/β
+    α_pg = [4.0 9.0]
+    β_pg = [2.0 3.0]
+    @test epistemic(PG, α_pg, β_pg) ≈ [1.0 1.0]
+    @test aleatoric(PG, α_pg, β_pg) ≈ [2.0 3.0]
+    # total = epistemic + aleatoric = α(β+1)/β²
+    @test epistemic(PG, α_pg, β_pg) .+ aleatoric(PG, α_pg, β_pg) ≈ @. α_pg * (β_pg + 1) / β_pg^2
+
+    # BNB: epistemic = r²α(α+β-1)/((β-1)²(β-2)), aleatoric = rα(α+β-1)/((β-1)(β-2))
+    r_bnb = [2.0 3.0]
+    α_bnb = [3.0 4.0]
+    β_bnb = [5.0 6.0]  # > 2
+    epi_bnb = epistemic(BNB, r_bnb, α_bnb, β_bnb)
+    ale_bnb = aleatoric(BNB, r_bnb, α_bnb, β_bnb)
+    @test size(epi_bnb) == (1, 2)
+    @test size(ale_bnb) == (1, 2)
+    @test all(isfinite, epi_bnb)
+    @test all(isfinite, ale_bnb)
+    @test all(>(0), epi_bnb)
+    @test all(>(0), ale_bnb)
+    # manual check for first element: r=2, α=3, β=5
+    # epistemic = 4*3*7/(4²*3) = 84/48 = 1.75
+    @test epi_bnb[1] ≈ 2.0^2 * 3.0 * 7.0 / (4.0^2 * 3.0)
+    # aleatoric = 2*3*7/(4*3) = 42/12 = 3.5
+    @test ale_bnb[1] ≈ 2.0 * 3.0 * 7.0 / (4.0 * 3.0)
+
+    # FDIR: epistemic and aleatoric, per sample
+    K = 3
+    α_fd = Float32.([2.0 3.0; 3.0 5.0; 5.0 2.0])
+    p_fd = α_fd ./ sum(α_fd, dims = 1)  # proportional allocation
+    τ_fd = ones(Float32, 1, 2)
+    eu_fd = epistemic(FDIR, α_fd, p_fd, τ_fd)
+    au_fd = aleatoric(FDIR, α_fd, p_fd, τ_fd)
+    @test size(eu_fd) == (1, 2)
+    @test size(au_fd) == (1, 2)
+    @test all(isfinite, eu_fd)
+    @test all(isfinite, au_fd)
+    @test all(≥(0), eu_fd)
+    # total = epistemic + aleatoric
+    S_fd = sum(α_fd, dims = 1) .+ τ_fd
+    μ_fd = (α_fd .+ τ_fd .* p_fd) ./ S_fd
+    tu_fd = 1 .- sum(μ_fd .^ 2, dims = 1)
+    @test eu_fd .+ au_fd ≈ tu_fd
 end
 
 @testset "Loss functions" begin

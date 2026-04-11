@@ -17,11 +17,9 @@ using Pkg; Pkg.add(url="https://github.com/DoktorMike/EvidentialFlux.jl")
 
 ## Features
 
-EvidentialFlux provides three output layer types, each suited to a different
-modeling scenario:
-
-All layers are subtypes of `AbstractEvidentialLayer`, which provides
-generic `predict` and `split_params` dispatch.
+EvidentialFlux provides evidential output layers for regression, classification,
+and count data. All layers are subtypes of `AbstractEvidentialLayer`, which
+provides generic `predict` and `split_params` dispatch.
 
 | Layer | Use case | Output | Uncertainty |
 |-------|----------|--------|-------------|
@@ -61,22 +59,46 @@ generic `predict` and `split_params` dispatch.
 | `splitpg(y)` | Split concatenated PG output into (α, β) |
 | `splitbnb(y)` | Split concatenated BNB output into (r, α, β) |
 | `splitfdir(y)` | Split concatenated FDIR output into (α, p, τ) |
-| `uncertainty(ν, α, β)` | Epistemic uncertainty: β / (ν(α-1)) |
-| `uncertainty(α, β)` | Aleatoric uncertainty: β / (α-1) |
-| `uncertainty(α)` | DIR epistemic uncertainty: K / Σα |
-| `epistemic(ν)` | Simplified epistemic: 1/√ν |
-| `aleatoric(ν, α, β)` | Student-T std: β(1+ν) / (να) |
 | `evidence(ν, α)` | NIG total evidence: 2ν + α |
 | `evidence(α)` | DIR evidence: α - 1 |
 
-`predict` returns NamedTuples for NIG and MVE, so you can access
-parameters by name or destructure them as before:
+`predict` returns NamedTuples for NIG, PG, BNB, MVE, and FDIR, so you can
+access parameters by name or destructure them:
 
 ```julia
 p = predict(model, x)
 p.γ   # access by name
 γ, ν, α, β = predict(model, x)  # destructuring still works
 ```
+
+### Uncertainty
+
+All layers support a unified type-dispatched API for uncertainty
+decomposition. Pass the **layer type** as the first argument:
+
+```julia
+eu = epistemic(NIG, ν, α, β)
+au = aleatoric(NIG, ν, α, β)
+```
+
+| Layer | `epistemic(Type, ...)` | `aleatoric(Type, ...)` |
+|-------|----------------------|----------------------|
+| `NIG` | `epistemic(NIG, ν, α, β)` = 1/√ν | `aleatoric(NIG, ν, α, β)` = β(1+ν)/(να) |
+| `DIR` | `epistemic(DIR, α)` = K/Σα | — |
+| `MVE` | — | `aleatoric(MVE, σ)` = σ |
+| `PG` | `epistemic(PG, α, β)` = α/β² | `aleatoric(PG, α, β)` = α/β |
+| `BNB` | `epistemic(BNB, r, α, β)` = r²α(α+β-1)/((β-1)²(β-2)) | `aleatoric(BNB, r, α, β)` = rα(α+β-1)/((β-1)(β-2)) |
+| `FDIR` | `epistemic(FDIR, α, p, τ)` | `aleatoric(FDIR, α, p, τ)` = TU - EU |
+
+For NIG, the legacy arity-dispatched functions (`uncertainty(ν, α, β)`,
+`uncertainty(α, β)`, `epistemic(ν)`, `aleatoric(ν, α, β)`) remain available
+for backward compatibility.
+
+**Notes:**
+- **DIR** and **MVE** only expose one uncertainty type (epistemic and aleatoric, respectively)
+- **BNB** requires β > 2 for the moments to exist; values are clamped internally
+- **FDIR** uncertainties are per-sample `(1, B)`, derived from the FD mixture-of-Dirichlets decomposition (Yoon & Kim 2025)
+- **PG** and **BNB** uncertainties are per-output `(O, B)`, derived via the law of total variance
 
 ## Quick start
 
