@@ -418,3 +418,83 @@ effectively modeling geometric data:
 You don't need to constrain r=1 manually — BNB can learn it. But if you know
 your data is geometric, you could use `PG` instead (since the Geometric is also
 a special case of Poisson processes in the limit).
+
+## Choosing a loss function
+
+### NIG regression: nigloss vs nigloss\_scaled vs nigloss\_ureg
+
+All three share the same Student-T NLL base; they differ in their regularizer:
+
+| Loss | Regularizer | Start with λ | When to use |
+|------|------------|-------------|-------------|
+| `nigloss` | `\|y-γ\| · evidence` | 0.01-0.1 | Baseline, simple problems |
+| `nigloss_scaled` | `(\|y-γ\|/σ_St)^p · evidence` | 0.01-0.1 | **Recommended default.** Prevents the model from inflating variance to cheat the regularizer |
+| `nigloss_ureg` | `\|y-γ\| · evidence + uncertainty_loss` | λ=0.1, λ₁=0.1 | When you observe loss plateaus with high uncertainty predictions (gradient vanishing) |
+
+**Start with `nigloss_scaled`** at `λ=0.01`. If the model produces reasonable
+predictions but uncertainty is poorly calibrated, try increasing λ. If
+uncertainty is always high and the model seems stuck, try `nigloss_ureg`.
+
+### DIR classification: dirloss vs dirloss\_cor vs fdirloss
+
+| Loss | Regularizer | When to use |
+|------|------------|-------------|
+| `dirloss(y, α, t)` | Annealed KL divergence | Standard choice. The epoch counter `t` anneals the KL weight as `min(1, t/10)` — no tuning needed |
+| `dirloss_cor(y, α, t)` | Annealed KL + correct evidence term | When training is slow or accuracy plateaus early — the correction helps samples stuck in low-evidence regions |
+| `fdirloss(y, α, p, τ)` | Brier score on allocation `p` | When switching to the FDIR layer. No λ or epoch counter needed — the Brier regularizer is hyperparameter-free |
+| `dirmultloss(y, α)` | None (type II ML) | When targets are count vectors instead of one-hot. Also usable with one-hot targets as a hyperparameter-free alternative to `dirloss` |
+
+**Start with `dirloss`** — it works well out of the box. The KL annealing
+(`min(1, t/10)`) ramps up over the first 10 epochs automatically.
+
+### Count/positive regression: pgloss, egloss, bnbloss, bbloss
+
+These all follow the same pattern: NLL + `λ · |error| · evidence`.
+
+| Loss | Evidence term | Start with λ |
+|------|-------------|-------------|
+| `pgloss` | α (Gamma shape) | 0.01-0.1 |
+| `egloss` | α (Gamma shape) | 0.01-0.1 |
+| `bnbloss` | α+β (Beta concentration) | 0.01-0.1 |
+| `bbloss` | α+β (Beta concentration) | 0.01-0.1 |
+
+Set `λ=0` to train with pure marginal NLL (no regularizer). This is a valid
+starting point — the marginal likelihood already balances fit and complexity.
+Add regularization (`λ=0.01`) if the model produces overconfident predictions.
+
+## Hyperparameter tips
+
+### Regularization weight λ
+
+The regularization weight λ controls how strongly the model is penalized for
+being confident about wrong predictions.
+
+- **Too low** (λ → 0): model fits the data well but may be overconfident,
+  especially on out-of-distribution inputs
+- **Too high** (λ → ∞): model becomes underconfident everywhere, predicting
+  high uncertainty even where data is plentiful
+- **Sweet spot**: typically 0.001-0.1. Start with **0.01** and adjust based on
+  calibration plots
+
+**Practical workflow:**
+1. Start with `λ=0` (pure NLL) to verify the model can fit your data
+2. Add `λ=0.01` and check if uncertainty grows in data-sparse regions
+3. If uncertainty is too uniform, increase to `λ=0.1`
+4. If predictions degrade, reduce λ
+
+### Learning rate
+
+Evidential layers are sensitive to learning rate. If uncertainty collapses to
+near-zero early in training, try reducing the learning rate. A good starting
+point is `1e-3` with `AdamW`.
+
+### KL annealing (DIR / dirloss)
+
+The `dirloss` epoch counter `t` anneals the KL weight as `min(1.0, t/10)`.
+This means the KL regularizer is off at epoch 1, reaches half strength at
+epoch 5, and full strength at epoch 10+. This prevents the regularizer from
+dominating early training before the model has learned useful representations.
+
+If your model converges quickly (< 50 epochs), the annealing happens fast
+enough. For very long training runs (thousands of epochs), the annealing
+is effectively instant and has no impact.

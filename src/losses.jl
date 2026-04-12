@@ -106,8 +106,19 @@ function nigloss_ureg(y, γ, ν, α, β, λ = 1, λ₁ = 1)
     return nll .+ λ .* reg .+ λ₁ .* unc
 end
 
-# Deprecated aliases
+# Deprecated aliases — use nigloss_scaled and nigloss_ureg instead
+"""
+    nigloss2
+
+Deprecated alias for [`nigloss_scaled`](@ref). Use `nigloss_scaled` in new code.
+"""
 const nigloss2 = nigloss_scaled
+
+"""
+    nigloss3
+
+Deprecated alias for [`nigloss_ureg`](@ref). Use `nigloss_ureg` in new code.
+"""
 const nigloss3 = nigloss_ureg
 
 # The α here is actually the α̃ which has scaled down evidence that is good.
@@ -183,7 +194,12 @@ function dirloss_cor(y, α, t)
     return base .+ cor
 end
 
-# Deprecated alias
+# Deprecated alias — use dirloss_cor instead
+"""
+    dirloss2
+
+Deprecated alias for [`dirloss_cor`](@ref). Use `dirloss_cor` in new code.
+"""
 const dirloss2 = dirloss_cor
 
 """

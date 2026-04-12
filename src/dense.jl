@@ -323,26 +323,23 @@ end
 """
     MVE(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
 
-Create a fully connected layer which implements the Mean-Variance Network which is just a Normal 
-distribution whose forward pass is simply given by:
+Create a fully connected layer which implements a Mean-Variance Estimation
+network. This models a Normal distribution and only captures aleatoric
+uncertainty (no epistemic). For full uncertainty decomposition, use `NIG`.
 
-    y = W * x .+ bias
+The layer uses two parallel Dense branches internally:
+- **Mean head** (μ): applies `σ` as activation (default: `softplus`)
+- **Variance head** (σ): always uses `softplus` to ensure positivity
 
-The input `x` should be a vector of length `in`, or batch of vectors represented
-as an `in × N` matrix, or any array with `size(x,1) == in`.
-The out `y` will be a vector  of length `out*2`, or a batch with
-`size(y) == (out*2, size(x)[2:end]...)`
-The output will have applied the function `σ(y)` to each row/element of `y` except the first `out` ones.
-Keyword `bias=false` will switch off trainable bias for the layer.
-The initialisation of the weight matrix is `W = init(out*2, in)`, calling the function
-given to keyword `init`, with default `glorot_uniform`.
-The weight matrix and/or the bias vector (of length `out`) may also be provided explicitly.
-Remember that in this case the number of rows in the weight matrix `W` MUST be a multiple of 2.
-The same holds true for the `bias` vector.
+The output has shape `(out*2, batch...)` containing `[μ, σ]` stacked
+vertically. Use with `mveloss` for training.
+
+The parallel branch architecture supports selective parameter freezing
+via `Flux.freeze!`/`Flux.thaw!` on the named branches (`μw`, `σw`).
 
 # Arguments:
 - `(in, out)`: number of input and output neurons
-- `σ`: The function to apply to the μ layers which defaults to the softplus.
+- `σ`: activation for the **mean head** (default: `softplus`). The variance head always uses `softplus`.
 - `init`: The function to use to initialise the weight matrix.
 - `bias`: Whether to include a trainable bias vector.
 """

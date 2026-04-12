@@ -156,15 +156,34 @@ opt_state = Flux.setup(AdamW(1e-3), model)
 for epoch in 1:3000
     loss, grads = Flux.withgradient(model) do m
         γ, ν, α, β = splitnig(m(x'))
-        mean(nigloss(y, γ, ν, α, β, 0.001))
+        mean(nigloss_scaled(y, γ, ν, α, β, 0.01))
     end
     Flux.update!(opt_state, model, grads[1])
 end
 
-# Extract predictions and uncertainty
-γ, ν, α, β = predict(model, x')
-eu = epistemic(ν)
-au = aleatoric(ν, α, β)
+# Inference: get predictions and uncertainty in one call
+r = predictive(model, x')
+r.ŷ          # predicted value (γ)
+r.epistemic  # high when extrapolating beyond training data
+r.aleatoric  # high when data is inherently noisy
+```
+
+### Evidential classification (DIR)
+
+```julia
+model = Chain(Dense(2 => 64, relu), Dense(64 => 64, relu), DIR(64 => 3))
+opt_state = Flux.setup(AdamW(1e-2), model)
+
+for epoch in 1:500
+    loss, grads = Flux.withgradient(model) do m
+        sum(dirloss(y_onehot, m(x), epoch))
+    end
+    Flux.update!(opt_state, model, grads[1])
+end
+
+r = predictive(model, x_test)
+r.ŷ          # class probabilities
+r.epistemic  # high for out-of-distribution inputs
 ```
 
 ### Mean-variance estimation (MVE)
@@ -175,12 +194,15 @@ opt_state = Flux.setup(AdamW(1e-3), model)
 
 for epoch in 1:3000
     loss, grads = Flux.withgradient(model) do m
-        μ, σ = predict(m, x')
+        μ, σ = splitmve(m(x'))
         mean(mveloss(y, μ, σ))
     end
     Flux.update!(opt_state, model, grads[1])
 end
 ```
+
+See the [docs guide](https://doktormike.github.io/EvidentialFlux.jl/dev/guide/)
+for examples of all layer types and advice on choosing the right one.
 
 ## Classification
 
