@@ -445,15 +445,15 @@ Returns the point prediction in data space given the raw distributional
 parameters. This is the mean of the posterior predictive distribution.
 """
 predictive_mean(::Type{<:NIG}, p) = p.γ
-predictive_mean(::Type{<:BB}, p) = p.α ./ (p.α .+ p.β)
+predictive_mean(::Type{<:BB}, p, n = 1) = n .* p.α ./ (p.α .+ p.β)
 predictive_mean(::Type{<:PG}, p) = p.α ./ p.β
 function predictive_mean(::Type{<:EG}, p)
     α_c = max.(p.α, 1 .+ eps(eltype(p.α)))
     return p.β ./ (α_c .- 1)
 end
 predictive_mean(::Type{<:BNB}, p) = p.r .* p.α ./ p.β
-predictive_mean(::Type{<:DIR}, α) = α ./ sum(α, dims = 1)
-predictive_mean(::Type{<:FDIR}, p) = (p.α .+ p.τ .* p.p) ./ (sum(p.α, dims = 1) .+ p.τ)
+predictive_mean(::Type{<:DIR}, α, n = 1) = n .* α ./ sum(α, dims = 1)
+predictive_mean(::Type{<:FDIR}, p, n = 1) = n .* (p.α .+ p.τ .* p.p) ./ (sum(p.α, dims = 1) .+ p.τ)
 predictive_mean(::Type{<:MVE}, p) = p.μ
 
 # --- Predictive output (inference-time bundle) ---

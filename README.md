@@ -92,10 +92,10 @@ The point prediction (`ŷ`) depends on the layer type:
 | NIG | Mean of posterior predictive (Student-T) | γ |
 | PG | Expected count | α/β |
 | EG | Expected duration | β/(α-1) |
-| BB | Predicted probability | α/(α+β) |
+| BB | Expected count (n=1 default) | n·α/(α+β) |
 | BNB | Expected count at Beta mean | r·α/β |
-| DIR | Class probabilities | α/Σα |
-| FDIR | Class probabilities under FD | (α + τp)/(Σα + τ) |
+| DIR | Expected counts (n=1 default) | n·α/Σα |
+| FDIR | Expected counts (n=1 default) | n·(α + τp)/(Σα + τ) |
 | MVE | Predicted mean | μ |
 
 ### Training with `predict`
