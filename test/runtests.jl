@@ -12,6 +12,7 @@ using Test
     @test BB <: AbstractEvidentialLayer
     @test BNB <: AbstractEvidentialLayer
     @test ZIP <: AbstractEvidentialLayer
+    @test VM <: AbstractEvidentialLayer
 end
 
 @testset "EvidentialFlux.jl - Classification" begin
@@ -140,6 +141,19 @@ end
     @test all(>(0), α_λ)
     @test all(>(0), β_λ)
     @test size(α_π) == (nout, 10)
+end
+
+@testset "EvidentialFlux.jl - VM Directional Regression" begin
+    ninp, nout = 3, 5
+    m = VM(ninp => nout)
+    x = randn(Float32, 3, 10)
+    ŷ = m(x)
+    @test size(ŷ) == (3 * nout, 10)
+    μ₀, κ₀, κ = splitvm(ŷ)
+    @test all(>(0), κ₀)
+    @test all(>(0), κ)
+    @test size(μ₀) == (nout, 10)
+    @test size(κ₀) == (nout, 10)
 end
 
 @testset "EvidentialFlux.jl - FDIR Classification" begin
@@ -331,6 +345,18 @@ end
     @test β_λ2 == β_λ
 end
 
+@testset "splitvm" begin
+    nout, batch = 3, 5
+    μ₀ = randn(Float32, nout, batch)
+    κ₀ = 2 * ones(Float32, nout, batch)
+    κ = 3 * ones(Float32, nout, batch)
+    y = vcat(μ₀, κ₀, κ)
+    μ₀2, κ₀2, κ2 = splitvm(y)
+    @test μ₀2 == μ₀
+    @test κ₀2 == κ₀
+    @test κ2 == κ
+end
+
 @testset "splitmve" begin
     nout, batch = 3, 5
     μ = ones(Float32, nout, batch)
@@ -351,6 +377,7 @@ end
     @test size(BB(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
     @test size(BNB(3 => 2; bias = false)(randn(Float32, 3, 5))) == (6, 5)
     @test size(ZIP(3 => 2; bias = false)(randn(Float32, 3, 5))) == (8, 5)
+    @test size(VM(3 => 2; bias = false)(randn(Float32, 3, 5))) == (6, 5)
     @test size(FDIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (5, 5)
 
     # 3D input (higher-dimensional reshape)
@@ -363,6 +390,7 @@ end
     @test size(BB(3 => 2)(x3d)) == (4, 4, 5)
     @test size(BNB(3 => 2)(x3d)) == (6, 4, 5)
     @test size(ZIP(3 => 2)(x3d)) == (8, 4, 5)
+    @test size(VM(3 => 2)(x3d)) == (6, 4, 5)
     @test size(FDIR(3 => 2)(x3d)) == (5, 4, 5)
 end
 
@@ -499,6 +527,25 @@ end
         α_π_zip * β_π_zip / ((α_π_zip + β_π_zip) * (α_π_zip + β_π_zip + 1)) *
         α_λ_zip * (α_λ_zip + 1) / β_λ_zip^2
     )
+
+    # VM: epistemic = 1 - I₁(κ₀)/I₀(κ₀), aleatoric = 1 - I₁(κ)/I₀(κ)
+    using SpecialFunctions: besselix
+    κ₀_vm = [2.0 5.0]
+    κ_vm = [3.0 1.0]
+    epi_vm = epistemic(VM, κ₀_vm)
+    ale_vm = aleatoric(VM, κ_vm)
+    @test all(isfinite, epi_vm)
+    @test all(isfinite, ale_vm)
+    @test all(>(0), epi_vm)
+    @test all(>(0), ale_vm)
+    @test all(<(1), epi_vm)
+    @test all(<(1), ale_vm)
+    # manual: A(κ) = besselix(1,κ)/besselix(0,κ) = I₁(κ)/I₀(κ)
+    @test epi_vm ≈ 1 .- besselix.(1, κ₀_vm) ./ besselix.(0, κ₀_vm)
+    @test ale_vm ≈ 1 .- besselix.(1, κ_vm) ./ besselix.(0, κ_vm)
+    # κ=0 → circular variance = 1 (uniform)
+    @test epistemic(VM, [0.0])[1] ≈ 1.0
+    @test aleatoric(VM, [0.0])[1] ≈ 1.0
 
     # FDIR: epistemic and aleatoric, per sample
     K = 3
@@ -744,6 +791,33 @@ end
         @test nllzip(y_t, α_π_small, β_π_large, α_λ_t, β_λ_t) ≈
             nllpg(y_t, α_λ_t, β_λ_t) atol = 0.01f0
     end
+
+    # nllvm
+    nout_vm, batch_vm = 3, 5
+    θ_vm = Float32(π) .* (2 .* rand(Float32, nout_vm, batch_vm) .- 1)  # angles in [-π, π)
+    μ₀_vm = randn(Float32, nout_vm, batch_vm)
+    κ₀_vm = abs.(randn(Float32, nout_vm, batch_vm)) .+ 0.5f0
+    κ_vm = abs.(randn(Float32, nout_vm, batch_vm)) .+ 0.5f0
+    nll_vm = nllvm(θ_vm, μ₀_vm, κ₀_vm, κ_vm)
+    @test size(nll_vm) == (nout_vm, batch_vm)
+    @test all(isfinite, nll_vm)
+
+    # vmloss
+    vl = vmloss(θ_vm, μ₀_vm, κ₀_vm, κ_vm)
+    @test size(vl) == (nout_vm, batch_vm)
+    @test all(isfinite, vl)
+
+    # vmloss with λ=0 equals nllvm
+    @test vmloss(θ_vm, μ₀_vm, κ₀_vm, κ_vm, 0) ≈ nllvm(θ_vm, μ₀_vm, κ₀_vm, κ_vm)
+
+    # nllvm sanity: uniform prior (κ₀=0), any θ → NLL = log(2π)
+    @test nllvm(Float32[0;;], Float32[0;;], Float32[0;;], Float32[1;;]) ≈
+        Float32.(log(2π) * ones(1, 1)) atol = 1.0f-5
+
+    # nllvm sanity: θ near μ₀ gives lower NLL than θ far from μ₀
+    nll_near = nllvm(Float32[0;;], Float32[0;;], Float32[2;;], Float32[2;;])
+    nll_far = nllvm(Float32[Float32(π);;], Float32[0;;], Float32[2;;], Float32[2;;])
+    @test nll_near[1] < nll_far[1]
 end
 
 @testset "predict" begin
@@ -833,6 +907,15 @@ end
     @test all(>(0), p_zip.β_π)
     @test all(>(0), p_zip.α_λ)
     @test all(>(0), p_zip.β_λ)
+
+    # VM predict returns NamedTuple with μ₀, κ₀, κ
+    m_vm = Chain(Dense(3 => 10, relu), VM(10 => 2))
+    p_vm = predict(m_vm, x)
+    @test p_vm isa NamedTuple{(:μ₀, :κ₀, :κ)}
+    @test size(p_vm.μ₀) == (2, 5)
+    @test size(p_vm.κ₀) == (2, 5)
+    @test all(>(0), p_vm.κ₀)
+    @test all(>(0), p_vm.κ)
 end
 
 @testset "predictive" begin
@@ -888,6 +971,17 @@ end
     @test all(>(0), r_zip.ŷ)
     @test size(r_zip.epistemic) == (2, 5)
     @test size(r_zip.aleatoric) == (2, 5)
+
+    # VM: ŷ = μ₀, both uncertainties are circular variances in (0, 1)
+    m_vm = Chain(Dense(3 => 10, relu), VM(10 => 2))
+    r_vm = predictive(m_vm, x)
+    @test r_vm.ŷ == r_vm.params.μ₀
+    @test size(r_vm.epistemic) == (2, 5)
+    @test size(r_vm.aleatoric) == (2, 5)
+    @test all(>(0), r_vm.epistemic)
+    @test all(<(1), r_vm.epistemic)
+    @test all(>(0), r_vm.aleatoric)
+    @test all(<(1), r_vm.aleatoric)
 
     # DIR: ŷ = α/Σα, aleatoric is nothing
     m_dir = Chain(Dense(3 => 10, relu), DIR(10 => 4))
@@ -1028,6 +1122,16 @@ end
     end
     @test isfinite(loss_zip)
     @test !isnothing(grads_zip[1])
+
+    # vmloss
+    θ_vm = Float32(π) .* (2 .* rand(Float32, 2, 5) .- 1)
+    m_vm = Chain(Dense(3 => 10, relu), VM(10 => 2))
+    loss_vm, grads_vm = Flux.withgradient(m_vm) do m
+        μ₀, κ₀, κ = splitvm(m(x))
+        sum(vmloss(θ_vm, μ₀, κ₀, κ))
+    end
+    @test isfinite(loss_vm)
+    @test !isnothing(grads_vm[1])
 
     # mveloss
     m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2))

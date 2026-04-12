@@ -10,6 +10,7 @@ Ask yourself: **what does my target variable look like?**
 - **Real numbers** (can be negative, zero, or positive) → [NIG](#Real-valued-targets-NIG) or [MVE](#Simple-variance-estimation-MVE)
 - **Strictly positive numbers** (always > 0) → [EG](#Positive-continuous-targets-EG)
 - **Counts** (0, 1, 2, ...) → [PG](#Count-targets-PG), [BNB](#Overdispersed-count-targets-BNB), or [ZIP](#Zero-inflated-count-targets-ZIP)
+- **Angles / directions** (circular data on [-π, π)) → [VM](#Directional-targets-VM)
 - **One of K classes** → [DIR](#Classification-targets-DIR) or [FDIR](#Flexible-classification-FDIR)
 - **Counts per category** (multiple categories, totals vary) → [DIR + dirmultloss](#Count-vectors-across-categories)
 - **Proportions / success rates** (k successes out of n trials) → [BB](#Proportions-and-success-rates-BB)
@@ -213,6 +214,45 @@ zeros come from a distinct subpopulation that simply *can't* produce events
 (non-smokers, non-customers), ZIP is the better structural match. If your zeros
 are just part of a highly variable count distribution, BNB may suffice.
 
+## Directional targets — VM
+
+**Use when** your target is an angle or direction on the circle.
+
+**Real-world examples:**
+- Wind direction forecasting (meteorology)
+- Robot heading estimation (robotics)
+- Time-of-day modeling (cyclical features, mapped to [0, 2π))
+- Protein backbone dihedral angles (bioinformatics)
+- Geospatial bearing / compass heading prediction
+- Phase angle estimation (signal processing)
+- Joint angle prediction (biomechanics)
+
+**Layer:** `VM(in => out)` — predicts Von Mises prior parameters (μ₀, κ₀) for
+the mean direction and observation concentration κ.
+
+```julia
+model = Chain(Dense(10 => 64, relu), Dense(64 => 64, relu), VM(64 => 1))
+
+loss, grads = Flux.withgradient(model) do m
+    μ₀, κ₀, κ = splitvm(m(x))
+    mean(vmloss(angles, μ₀, κ₀, κ, 0.1))
+end
+
+r = predictive(model, x_test)
+r.ŷ          # predicted direction (μ₀)
+r.epistemic  # circular variance of prior: high when direction is uncertain
+r.aleatoric  # circular variance of observations: high when data is noisy
+```
+
+**Note:** Both uncertainties are circular variances in [0, 1], where 0 means
+certain (all probability mass at one direction) and 1 means uniform on the
+circle (no directional information).
+
+**Why not use NIG for angles?** NIG assumes targets on the real line and has no
+notion of periodicity — it doesn't know that -π and π are the same direction.
+VM's loss uses `cos(θ - μ₀)` which naturally handles wraparound, and its
+marginal likelihood is the correct circular integral.
+
 ## Classification targets — DIR
 
 **Use when** each observation belongs to exactly one of K classes.
@@ -380,6 +420,7 @@ classification decision.
 | Count regression | `PG` | `pgloss` | α/β | Emails per hour |
 | Overdispersed counts | `BNB` | `bnbloss` | r·α/β | Insurance claims |
 | Zero-inflated counts | `ZIP` | `ziploss` | β_π/(α_π+β_π)·α_λ/β_λ | Doctor visits per year |
+| Directional / circular | `VM` | `vmloss` | μ₀ | Wind direction |
 | Classification | `DIR` | `dirloss` | α/Σα | Image classification |
 | Calibrated classification | `FDIR` | `fdirloss` | (α+τp)/(Σα+τ) | Safety-critical AI |
 | Count vectors | `DIR` | `dirmultloss` | α/Σα | Bag-of-words NLP |
@@ -505,6 +546,7 @@ These all follow the same pattern: NLL + `λ · |error| · evidence`.
 | `bnbloss` | α+β (Beta concentration) | 0.01-0.1 |
 | `bbloss` | α+β (Beta concentration) | 0.01-0.1 |
 | `ziploss` | α_π+β_π+α_λ (Beta + Gamma evidence) | 0.01-0.1 |
+| `vmloss` | κ₀ (prior concentration) | 0.01-0.1 |
 
 Set `λ=0` to train with pure marginal NLL (no regularizer). This is a valid
 starting point — the marginal likelihood already balances fit and complexity.

@@ -28,6 +28,7 @@ pass.
 | [`BB`](@ref) | Binomial | Beta | Beta-Binomial | Proportion estimation |
 | [`BNB`](@ref) | Negative Binomial | Beta | Beta-NB | Overdispersed counts |
 | [`ZIP`](@ref) | Zero-Inflated Poisson | Beta × Gamma | Zero-Inflated NB | Zero-inflated counts |
+| [`VM`](@ref) | Von Mises | Von Mises | Von Mises marginal | Directional/circular data |
 | [`DIR`](@ref) | Categorical | Dirichlet | Dir-Multinomial | Classification |
 | [`FDIR`](@ref) | Categorical | Flexible Dirichlet | Mixture of Dir-Mult | Calibrated classification |
 | [`MVE`](@ref) | Normal | _(point estimate)_ | Normal | Simple variance estimation |
@@ -157,6 +158,7 @@ EG
 BB
 BNB
 ZIP
+VM
 DIR
 FDIR
 MVE
@@ -186,6 +188,8 @@ bnbloss
 nllbnb
 ziploss
 nllzip
+vmloss
+nllvm
 ```
 
 ### Loss functions — Classification
@@ -211,6 +215,7 @@ spliteg
 splitbb
 splitbnb
 splitzip
+splitvm
 splitfdir
 ```
 

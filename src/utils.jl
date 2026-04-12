@@ -51,6 +51,9 @@ end
 split_params(::Type{<:ZIP}, y) = let (α_π, β_π, α_λ, β_λ) = _split_equal(y, 4)
     (α_π = α_π, β_π = β_π, α_λ = α_λ, β_λ = β_λ)
 end
+split_params(::Type{<:VM}, y) = let (μ₀, κ₀, κ) = _split_equal(y, 3)
+    (μ₀ = μ₀, κ₀ = κ₀, κ = κ)
+end
 split_params(::Type{<:MVE}, y) = let (μ, σ) = _split_equal(y, 2)
     (μ = μ, σ = σ)
 end
@@ -176,6 +179,20 @@ The input `y` should have shape `(nout*4, batch...)`.
 - `(α_π, β_π, α_λ, β_λ)`: tuple of arrays each with shape `(nout, batch...)`
 """
 splitzip(y) = let p = split_params(ZIP, y); (p.α_π, p.β_π, p.α_λ, p.β_λ) end
+
+"""
+    splitvm(y)
+
+Splits the concatenated output of a VM layer into its three components: μ₀, κ₀, κ.
+The input `y` should have shape `(nout*3, batch...)`.
+
+# Arguments:
+- `y`: the concatenated VM output with shape `(nout*3, batch...)`
+
+# Returns:
+- `(μ₀, κ₀, κ)`: tuple of arrays each with shape `(nout, batch...)`
+"""
+splitvm(y) = let p = split_params(VM, y); (p.μ₀, p.κ₀, p.κ) end
 
 """
     uncertainty(ν, α, β)
@@ -437,6 +454,39 @@ function aleatoric(::Type{<:ZIP}, α_π, β_π, α_λ, β_λ)
 end
 
 """
+    epistemic(::Type{<:VM}, κ₀)
+
+Epistemic uncertainty for the Von Mises model: the circular variance of the
+prior on the mean direction μ.
+
+    CV[μ] = 1 - A(κ₀)
+
+where `A(κ) = I₁(κ)/I₀(κ)` is the mean resultant length. Ranges from 0
+(certain, κ₀ → ∞) to 1 (uniform on the circle, κ₀ → 0).
+"""
+function epistemic(::Type{<:VM}, κ₀)
+    Ix₀ = SpecialFunctions.besselix.(0, κ₀)
+    Ix₁ = SpecialFunctions.besselix.(1, κ₀)
+    return 1 .- Ix₁ ./ Ix₀
+end
+
+"""
+    aleatoric(::Type{<:VM}, κ)
+
+Aleatoric uncertainty for the Von Mises model: the circular variance of the
+observation noise.
+
+    CV[θ|μ] = 1 - A(κ)
+
+where `A(κ) = I₁(κ)/I₀(κ)` is the mean resultant length.
+"""
+function aleatoric(::Type{<:VM}, κ)
+    Ix₀ = SpecialFunctions.besselix.(0, κ)
+    Ix₁ = SpecialFunctions.besselix.(1, κ)
+    return 1 .- Ix₁ ./ Ix₀
+end
+
+"""
     epistemic(::Type{<:FDIR}, α, p, τ)
 
 Epistemic uncertainty for the Flexible Dirichlet model (Yoon & Kim 2025).
@@ -508,6 +558,7 @@ function predictive_mean(::Type{<:EG}, p)
 end
 predictive_mean(::Type{<:BNB}, p) = p.r .* p.α ./ p.β
 predictive_mean(::Type{<:ZIP}, p) = p.β_π ./ (p.α_π .+ p.β_π) .* p.α_λ ./ p.β_λ
+predictive_mean(::Type{<:VM}, p) = p.μ₀
 predictive_mean(::Type{<:DIR}, α, n = 1) = n .* α ./ sum(α, dims = 1)
 predictive_mean(::Type{<:FDIR}, p, n = 1) = n .* (p.α .+ p.τ .* p.p) ./ (sum(p.α, dims = 1) .+ p.τ)
 predictive_mean(::Type{<:MVE}, p) = p.μ
@@ -582,6 +633,14 @@ function predictive(::Type{T}, m, x) where {T <: ZIP}
     return (ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.α_π, p.β_π, p.α_λ, p.β_λ),
         aleatoric = aleatoric(T, p.α_π, p.β_π, p.α_λ, p.β_λ),
+        params = p)
+end
+
+function predictive(::Type{T}, m, x) where {T <: VM}
+    p = predict(T, m, x)
+    return (ŷ = predictive_mean(T, p),
+        epistemic = epistemic(T, p.κ₀),
+        aleatoric = aleatoric(T, p.κ),
         params = p)
 end
 

@@ -1,3 +1,22 @@
+# --- Bessel function helpers (numerically stable, AD-compatible) ---
+
+"""
+    _logI₀(x::Real)
+
+Numerically stable computation of `log(I₀(x))` where `I₀` is the modified
+Bessel function of the first kind of order 0. Uses the scaled Bessel function
+`besselix` to avoid overflow for large `x`. A custom `rrule` is provided
+since `besseli` lacks AD support in current SpecialFunctions.jl.
+"""
+_logI₀(x::Real) = log(SpecialFunctions.besselix(0, x)) + abs(x)
+
+function ChainRulesCore.rrule(::typeof(_logI₀), x::Real)
+    Ix₀ = SpecialFunctions.besselix(0, x)
+    y = log(Ix₀) + abs(x)
+    _logI₀_pb(ȳ) = (NoTangent(), ȳ * SpecialFunctions.besselix(1, x) / Ix₀)
+    return y, _logI₀_pb
+end
+
 """
     nllstudent(y, γ, ν, α, β)
 
@@ -521,5 +540,50 @@ function ziploss(y, α_π, β_π, α_λ, β_λ, λ = 1)
     nll = nllzip(y, α_π, β_π, α_λ, β_λ)
     ŷ = β_π ./ (α_π .+ β_π) .* α_λ ./ β_λ
     reg = abs.(y .- ŷ) .* (α_π .+ β_π .+ α_λ)
+    return nll .+ λ .* reg
+end
+
+"""
+    nllvm(θ, μ₀, κ₀, κ)
+
+Negative log-likelihood of the Von Mises marginal obtained by integrating out
+the mean direction `μ ~ VonMises(μ₀, κ₀)` from `VonMises(θ | μ, κ)`:
+
+    p(θ|μ₀,κ₀,κ) = I₀(R) / (2π · I₀(κ) · I₀(κ₀))
+
+where `R = √(κ² + κ₀² + 2κκ₀cos(θ-μ₀))` and `I₀` is the modified Bessel
+function of the first kind of order 0.
+
+Use this with the `VM` layer for evidential directional regression.
+
+# Arguments:
+- `θ`: angular targets in radians, shape `(O, B)`
+- `μ₀`: prior mean direction (unconstrained), shape `(O, B)`
+- `κ₀`: prior concentration parameter (> 0), shape `(O, B)`
+- `κ`: observation concentration parameter (> 0), shape `(O, B)`
+"""
+function nllvm(θ, μ₀, κ₀, κ)
+    R = sqrt.(κ .^ 2 .+ κ₀ .^ 2 .+ 2 .* κ .* κ₀ .* cos.(θ .- μ₀))
+    return log(2π) .+ _logI₀.(κ) .+ _logI₀.(κ₀) .- _logI₀.(R)
+end
+
+"""
+    vmloss(θ, μ₀, κ₀, κ, λ = 1)
+
+Loss for Von Mises evidential directional regression. Combines the marginal
+NLL (from `nllvm`) with a regularizer that penalizes high prior concentration
+(κ₀) when the predicted direction is far from the observed angle, using the
+circular distance `1 - cos(θ - μ₀)`.
+
+# Arguments:
+- `θ`: angular targets in radians, shape `(O, B)`
+- `μ₀`: prior mean direction (unconstrained), shape `(O, B)`
+- `κ₀`: prior concentration parameter (> 0), shape `(O, B)`
+- `κ`: observation concentration parameter (> 0), shape `(O, B)`
+- `λ`: regularization weight (default: 1)
+"""
+function vmloss(θ, μ₀, κ₀, κ, λ = 1)
+    nll = nllvm(θ, μ₀, κ₀, κ)
+    reg = (1 .- cos.(θ .- μ₀)) .* κ₀
     return nll .+ λ .* reg
 end

@@ -319,6 +319,56 @@ end
 (a::ZIP)(x::AbstractArray) = _reshape_call(a, x)
 
 """
+    VM(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
+    VM(W::AbstractMatrix, [bias, σ])
+
+Create a fully connected layer which implements a Von Mises evidential model
+for directional/circular regression on angles in [-π, π). Places a
+Von Mises(μ₀, κ₀) prior over the mean direction μ, with a learned observation
+concentration κ, yielding a closed-form marginal likelihood on the circle.
+
+The output has shape `(out*3, batch...)` containing `[μ₀, κ₀, κ]` stacked
+vertically, where κ₀ and κ are passed through `σ` to ensure positivity.
+The mean direction μ₀ is left unconstrained (periodicity is handled by the
+cosine in the loss function).
+
+Use with `vmloss` for training and `splitvm` / `split_params(VM, y)` to
+decompose the output. The predicted direction is `μ₀`.
+
+# Arguments:
+- `(in, out)`: number of input features and output angular targets
+- `σ`: activation ensuring positivity for concentration parameters (default: softplus)
+- `init`: weight initialisation function (default: `glorot_uniform`)
+- `bias`: whether to include a trainable bias vector
+"""
+struct VM{F, M <: AbstractMatrix, B} <: AbstractEvidentialLayer
+    W::M
+    b::B
+    σ::F
+    function VM(W::M, b = true, σ::F = NNlib.softplus) where {M <: AbstractMatrix, F}
+        b = Flux.create_bias(W, b, size(W, 1))
+        return new{F, M, typeof(b)}(W, b, σ)
+    end
+end
+
+function VM(
+        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+        init = Flux.glorot_uniform, bias = true
+    )
+    return VM(init(out * 3, in), bias, σ)
+end
+
+Flux.@layer VM
+
+function (a::VM)(x::AbstractVecOrMat)
+    o = a.W * x .+ a.b
+    μ₀_raw, κ₀_raw, κ_raw = _split_equal(o, 3)
+    return vcat(μ₀_raw, a.σ.(κ₀_raw), a.σ.(κ_raw))
+end
+
+(a::VM)(x::AbstractArray) = _reshape_call(a, x)
+
+"""
     DIR(in => out; bias=true, init=Flux.glorot_uniform)
     DIR(W::AbstractMatrix, [bias])
 

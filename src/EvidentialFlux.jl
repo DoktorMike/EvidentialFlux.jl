@@ -1,5 +1,6 @@
 module EvidentialFlux
 
+using ChainRulesCore: ChainRulesCore, NoTangent
 using Flux
 using Flux: ignore_derivatives
 using NNlib
@@ -13,6 +14,7 @@ export EG
 export BB
 export BNB
 export ZIP
+export VM
 export DIR
 export MVE
 export FDIR
@@ -38,6 +40,8 @@ export nllbnb
 export bnbloss
 export nllzip
 export ziploss
+export nllvm
+export vmloss
 export mveloss
 export nllstudent
 
@@ -51,6 +55,7 @@ export spliteg
 export splitbb
 export splitbnb
 export splitzip
+export splitvm
 export uncertainty
 export aleatoric
 export epistemic
