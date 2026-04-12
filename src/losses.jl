@@ -318,6 +318,88 @@ function pgloss(y, α, β, λ = 1)
 end
 
 """
+    nlleg(y, α, β)
+
+Negative log-likelihood of the Lomax (Pareto Type II) marginal obtained by
+integrating out `λ ~ Gamma(α, β)` from `Exp(y | λ)`:
+
+    p(y|α,β) = α·βᵅ / (β+y)^(α+1)
+
+Use this with the `EG` layer for evidential positive continuous regression.
+
+# Arguments:
+- `y`: positive continuous targets, shape `(O, B)`
+- `α`: Gamma shape parameter (> 0), shape `(O, B)`
+- `β`: Gamma rate parameter (> 0), shape `(O, B)`
+"""
+nlleg(y, α, β) = .- log.(α) .- α .* log.(β) .+ (α .+ 1) .* log.(β .+ y)
+
+"""
+    egloss(y, α, β, λ = 1)
+
+Loss for Exponential-Gamma evidential positive regression. Combines the Lomax
+NLL (from `nlleg`) with a regularizer that penalizes high confidence (large α)
+when the predicted duration `β/(α-1)` is far from the observed value.
+
+# Arguments:
+- `y`: positive continuous targets, shape `(O, B)`
+- `α`: Gamma shape parameter (> 0) from an EG layer, shape `(O, B)`
+- `β`: Gamma rate parameter (> 0) from an EG layer, shape `(O, B)`
+- `λ`: regularization weight (default: 1)
+"""
+function egloss(y, α, β, λ = 1)
+    nll = nlleg(y, α, β)
+    ŷ = β ./ max.(α, 1 .+ eps(eltype(α)))
+    reg = abs.(y .- ŷ) .* α
+    return nll .+ λ .* reg
+end
+
+"""
+    nllbb(k, n, α, β)
+
+Negative log-likelihood of the Beta-Binomial marginal obtained by integrating
+out `p ~ Beta(α, β)` from `Binomial(k | n, p)`:
+
+    p(k|n,α,β) = C(n,k) · B(k+α, n-k+β) / B(α,β)
+
+Use this with the `BB` layer for evidential proportion estimation.
+
+# Arguments:
+- `k`: observed successes (non-negative), shape `(O, B)`
+- `n`: number of trials (positive), shape `(O, B)`
+- `α`: Beta shape parameter (> 0), shape `(O, B)`
+- `β`: Beta shape parameter (> 0), shape `(O, B)`
+"""
+function nllbb(k, n, α, β)
+    logΓ = SpecialFunctions.loggamma
+    return .- logΓ.(n .+ 1) .+ logΓ.(k .+ 1) .+ logΓ.(n .- k .+ 1) .+
+        logΓ.(n .+ α .+ β) .+ logΓ.(α) .+ logΓ.(β) .-
+        logΓ.(k .+ α) .- logΓ.(n .- k .+ β) .- logΓ.(α .+ β)
+end
+
+"""
+    bbloss(k, n, α, β, λ = 1)
+
+Loss for Binomial-Beta evidential proportion estimation. Combines the
+Beta-Binomial NLL (from `nllbb`) with a regularizer that penalizes high
+confidence (large α+β) when the predicted probability `α/(α+β)` is far from
+the observed proportion `k/n`.
+
+# Arguments:
+- `k`: observed successes (non-negative), shape `(O, B)`
+- `n`: number of trials (positive), shape `(O, B)`
+- `α`: Beta shape parameter (> 0) from a BB layer, shape `(O, B)`
+- `β`: Beta shape parameter (> 0) from a BB layer, shape `(O, B)`
+- `λ`: regularization weight (default: 1)
+"""
+function bbloss(k, n, α, β, λ = 1)
+    nll = nllbb(k, n, α, β)
+    p̂ = α ./ (α .+ β)
+    reg = abs.(k ./ max.(n, eps(eltype(n))) .- p̂) .* (α .+ β)
+    return nll .+ λ .* reg
+end
+
+"""
     nllbnb(y, r, α, β)
 
 Negative log-likelihood of the Beta-Negative Binomial marginal obtained by

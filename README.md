@@ -25,6 +25,8 @@ provides generic `predict` and `split_params` dispatch.
 |-------|----------|--------|-------------|
 | `NIG(in => out)` | Regression | γ, ν, α, β (4 × out) | Aleatoric + epistemic |
 | `PG(in => out)` | Count regression | α, β (2 × out) | Aleatoric + epistemic |
+| `EG(in => out)` | Positive continuous regression | α, β (2 × out) | Aleatoric + epistemic |
+| `BB(in => out)` | Proportion/success-rate estimation | α, β (2 × out) | Aleatoric + epistemic |
 | `BNB(in => out)` | Overdispersed count regression | r, α, β (3 × out) | Aleatoric + epistemic |
 | `DIR(in => out)` | Classification | Dirichlet concentrations (out) | Epistemic |
 | `FDIR(in => out)` | Classification | α, p, τ (2 × out + 1) | Aleatoric + epistemic |
@@ -42,8 +44,12 @@ provides generic `predict` and `split_params` dispatch.
 | `dirmultloss(y, α)` | Dirichlet-Multinomial NLL for count vector targets (reuses `DIR` layer) |
 | `fdirloss(y, α, p, τ)` | Flexible Dirichlet loss (Yoon & Kim 2025) |
 | `pgloss(y, α, β, λ)` | Poisson-Gamma count regression loss (NLL + regularizer) |
+| `egloss(y, α, β, λ)` | Exponential-Gamma positive regression loss (NLL + regularizer) |
+| `bbloss(k, n, α, β, λ)` | Binomial-Beta proportion estimation loss (NLL + regularizer) |
 | `bnbloss(y, r, α, β, λ)` | Beta-Negative Binomial count regression loss (NLL + regularizer) |
 | `nllpg(y, α, β)` | Negative Binomial marginal NLL |
+| `nlleg(y, α, β)` | Lomax (Pareto Type II) marginal NLL |
+| `nllbb(k, n, α, β)` | Beta-Binomial marginal NLL |
 | `nllbnb(y, r, α, β)` | Beta-Negative Binomial marginal NLL |
 | `mveloss(y, μ, σ)` | Gaussian negative log-likelihood |
 | `nllstudent(y, γ, ν, α, β)` | Student-T negative log-likelihood |
@@ -59,6 +65,8 @@ provides generic `predict` and `split_params` dispatch.
 | `splitnig(y)` | Split concatenated NIG output into (γ, ν, α, β) |
 | `splitmve(y)` | Split concatenated MVE output into (μ, σ) |
 | `splitpg(y)` | Split concatenated PG output into (α, β) |
+| `spliteg(y)` | Split concatenated EG output into (α, β) |
+| `splitbb(y)` | Split concatenated BB output into (α, β) |
 | `splitbnb(y)` | Split concatenated BNB output into (r, α, β) |
 | `splitfdir(y)` | Split concatenated FDIR output into (α, p, τ) |
 | `evidence(ν, α)` | NIG total evidence: 2ν + α |
@@ -83,6 +91,8 @@ The point prediction (`ŷ`) depends on the layer type:
 |-------|-----|---------|
 | NIG | Mean of posterior predictive (Student-T) | γ |
 | PG | Expected count | α/β |
+| EG | Expected duration | β/(α-1) |
+| BB | Predicted probability | α/(α+β) |
 | BNB | Expected count at Beta mean | r·α/β |
 | DIR | Class probabilities | α/Σα |
 | FDIR | Class probabilities under FD | (α + τp)/(Σα + τ) |
@@ -114,6 +124,8 @@ au = aleatoric(NIG, ν, α, β)
 | `DIR` | `epistemic(DIR, α)` = K/Σα | — |
 | `MVE` | — | `aleatoric(MVE, σ)` = σ |
 | `PG` | `epistemic(PG, α, β)` = α/β² | `aleatoric(PG, α, β)` = α/β |
+| `EG` | `epistemic(EG, α, β)` = β²/((α-1)²(α-2)) | `aleatoric(EG, α, β)` = β²/((α-1)(α-2)) |
+| `BB` | `epistemic(BB, α, β)` = αβ/((α+β)²(α+β+1)) | `aleatoric(BB, α, β)` = αβ/((α+β)(α+β+1)) |
 | `BNB` | `epistemic(BNB, r, α, β)` = r²α(α+β-1)/((β-1)²(β-2)) | `aleatoric(BNB, r, α, β)` = rα(α+β-1)/((β-1)(β-2)) |
 | `FDIR` | `epistemic(FDIR, α, p, τ)` | `aleatoric(FDIR, α, p, τ)` = TU - EU |
 
@@ -123,6 +135,7 @@ for backward compatibility.
 
 **Notes:**
 - **DIR** and **MVE** only expose one uncertainty type (epistemic and aleatoric, respectively)
+- **EG** requires α > 2 for the moments to exist; values are clamped internally
 - **BNB** requires β > 2 for the moments to exist; values are clamped internally
 - **FDIR** uncertainties are per-sample `(1, B)`, derived from the FD mixture-of-Dirichlets decomposition (Yoon & Kim 2025)
 - **PG** and **BNB** uncertainties are per-output `(O, B)`, derived via the law of total variance

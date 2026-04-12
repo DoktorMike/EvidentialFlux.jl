@@ -8,6 +8,8 @@ using Test
     @test MVE <: AbstractEvidentialLayer
     @test FDIR <: AbstractEvidentialLayer
     @test PG <: AbstractEvidentialLayer
+    @test EG <: AbstractEvidentialLayer
+    @test BB <: AbstractEvidentialLayer
     @test BNB <: AbstractEvidentialLayer
 end
 
@@ -83,6 +85,35 @@ end
     @test size(β) == (nout, 10)
 end
 
+@testset "EvidentialFlux.jl - EG Positive Regression" begin
+    ninp, nout = 3, 5
+    m = EG(ninp => nout)
+    x = randn(Float32, 3, 10)
+    ŷ = m(x)
+    @test size(ŷ) == (2 * nout, 10)
+    α, β = spliteg(ŷ)
+    @test all(>(0), α)
+    @test all(>(0), β)
+    @test size(α) == (nout, 10)
+    @test size(β) == (nout, 10)
+end
+
+@testset "EvidentialFlux.jl - BB Proportion Estimation" begin
+    ninp, nout = 3, 5
+    m = BB(ninp => nout)
+    x = randn(Float32, 3, 10)
+    ŷ = m(x)
+    @test size(ŷ) == (2 * nout, 10)
+    α, β = splitbb(ŷ)
+    @test all(>(0), α)
+    @test all(>(0), β)
+    @test size(α) == (nout, 10)
+    # predicted probability is in (0, 1)
+    p̂ = α ./ (α .+ β)
+    @test all(>(0), p̂)
+    @test all(<(1), p̂)
+end
+
 @testset "EvidentialFlux.jl - BNB Count Regression" begin
     ninp, nout = 3, 5
     m = BNB(ninp => nout)
@@ -156,6 +187,25 @@ end
     @test q_pg.β == β_pg
     @test vcat(q_pg.α, q_pg.β) == y_pg
 
+    # EG split_params returns NamedTuple
+    α_eg = 2 * ones(Float32, nout, batch)
+    β_eg = 3 * ones(Float32, nout, batch)
+    y_eg = vcat(α_eg, β_eg)
+    q_eg = split_params(EG, y_eg)
+    @test q_eg isa NamedTuple{(:α, :β)}
+    @test q_eg.α == α_eg
+    @test q_eg.β == β_eg
+    @test vcat(q_eg.α, q_eg.β) == y_eg
+
+    # BB split_params returns NamedTuple
+    α_bb = 2 * ones(Float32, nout, batch)
+    β_bb = 3 * ones(Float32, nout, batch)
+    y_bb = vcat(α_bb, β_bb)
+    q_bb = split_params(BB, y_bb)
+    @test q_bb isa NamedTuple{(:α, :β)}
+    @test q_bb.α == α_bb
+    @test vcat(q_bb.α, q_bb.β) == y_bb
+
     # BNB split_params returns NamedTuple
     r_bnb = ones(Float32, nout, batch)
     α_bnb = 2 * ones(Float32, nout, batch)
@@ -220,6 +270,26 @@ end
     @test β2 == β
 end
 
+@testset "spliteg" begin
+    nout, batch = 3, 5
+    α = 2 * ones(Float32, nout, batch)
+    β = 3 * ones(Float32, nout, batch)
+    y = vcat(α, β)
+    α2, β2 = spliteg(y)
+    @test α2 == α
+    @test β2 == β
+end
+
+@testset "splitbb" begin
+    nout, batch = 3, 5
+    α = 2 * ones(Float32, nout, batch)
+    β = 3 * ones(Float32, nout, batch)
+    y = vcat(α, β)
+    α2, β2 = splitbb(y)
+    @test α2 == α
+    @test β2 == β
+end
+
 @testset "splitbnb" begin
     nout, batch = 3, 5
     r = ones(Float32, nout, batch)
@@ -248,6 +318,8 @@ end
     @test size(DIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (2, 5)
     @test size(MVE(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
     @test size(PG(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
+    @test size(EG(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
+    @test size(BB(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
     @test size(BNB(3 => 2; bias = false)(randn(Float32, 3, 5))) == (6, 5)
     @test size(FDIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (5, 5)
 
@@ -257,6 +329,8 @@ end
     @test size(DIR(3 => 2)(x3d)) == (2, 4, 5)
     @test size(MVE(3 => 2)(x3d)) == (4, 4, 5)
     @test size(PG(3 => 2)(x3d)) == (4, 4, 5)
+    @test size(EG(3 => 2)(x3d)) == (4, 4, 5)
+    @test size(BB(3 => 2)(x3d)) == (4, 4, 5)
     @test size(BNB(3 => 2)(x3d)) == (6, 4, 5)
     @test size(FDIR(3 => 2)(x3d)) == (5, 4, 5)
 end
@@ -313,6 +387,34 @@ end
     # MVE type-dispatched: aleatoric is just σ
     σ_mve = Float32.([0.5 1.0; 0.3 0.8])
     @test aleatoric(MVE, σ_mve) == σ_mve
+
+    # BB: epistemic = Var[p] = αβ/((α+β)²(α+β+1)), aleatoric = E[p(1-p)]
+    α_bb = [3.0 4.0]
+    β_bb = [2.0 6.0]
+    epi_bb = epistemic(BB, α_bb, β_bb)
+    ale_bb = aleatoric(BB, α_bb, β_bb)
+    @test all(>(0), epi_bb)
+    @test all(>(0), ale_bb)
+    # manual: α=3, β=2, S=5 → epi = 6/(25*6) = 0.04, ale = 6/(5*6) = 0.2
+    @test epi_bb[1] ≈ 6.0 / (25.0 * 6.0)
+    @test ale_bb[1] ≈ 6.0 / (5.0 * 6.0)
+    # epistemic = aleatoric / (α+β), since Var[p] = E[p(1-p)]/(α+β)
+    @test epi_bb ≈ ale_bb ./ (α_bb .+ β_bb)
+
+    # EG: epistemic = β²/((α-1)²(α-2)), aleatoric = β²/((α-1)(α-2))
+    α_eg = [4.0 5.0]
+    β_eg = [6.0 8.0]
+    epi_eg = epistemic(EG, α_eg, β_eg)
+    ale_eg = aleatoric(EG, α_eg, β_eg)
+    @test all(isfinite, epi_eg)
+    @test all(isfinite, ale_eg)
+    @test all(>(0), epi_eg)
+    @test all(>(0), ale_eg)
+    # manual: α=4, β=6 → epi = 36/(9*2) = 2.0, ale = 36/(3*2) = 6.0
+    @test epi_eg[1] ≈ 36.0 / (9.0 * 2.0)
+    @test ale_eg[1] ≈ 36.0 / (3.0 * 2.0)
+    # total = epi + ale = Var[Y] under Lomax = β²α/((α-1)²(α-2))
+    @test epi_eg .+ ale_eg ≈ @. β_eg^2 * α_eg / ((α_eg - 1)^2 * (α_eg - 2))
 
     # PG: epistemic = α/β², aleatoric = α/β
     α_pg = [4.0 9.0]
@@ -486,6 +588,46 @@ end
     # pgloss with λ=0 equals nllpg
     @test pgloss(y_counts, α_pg, β_pg, 0) ≈ nllpg(y_counts, α_pg, β_pg)
 
+    # nlleg
+    y_pos = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.1f0
+    α_eg = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.5f0
+    β_eg = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.5f0
+    nll_eg = nlleg(y_pos, α_eg, β_eg)
+    @test size(nll_eg) == (nout_pg, batch_pg)
+    @test all(isfinite, nll_eg)
+
+    # egloss
+    el = egloss(y_pos, α_eg, β_eg)
+    @test size(el) == (nout_pg, batch_pg)
+    @test all(isfinite, el)
+
+    # egloss with λ=0 equals nlleg
+    @test egloss(y_pos, α_eg, β_eg, 0) ≈ nlleg(y_pos, α_eg, β_eg)
+
+    # nlleg sanity: α=1, β=1, y=1 → p(y|1,1) = 1·1/(1+1)^2 = 0.25 → NLL = log(4)
+    @test nlleg(Float32[1;;], Float32[1;;], Float32[1;;]) ≈ Float32.(log(4) * ones(1, 1)) atol = 1.0f-5
+
+    # nllbb
+    nout_bb, batch_bb = 3, 5
+    k_bb = Float32.(rand(0:5, nout_bb, batch_bb))
+    n_bb = k_bb .+ Float32.(rand(0:5, nout_bb, batch_bb))  # n ≥ k
+    α_bbl = abs.(randn(Float32, nout_bb, batch_bb)) .+ 0.5f0
+    β_bbl = abs.(randn(Float32, nout_bb, batch_bb)) .+ 0.5f0
+    nll_bb = nllbb(k_bb, n_bb, α_bbl, β_bbl)
+    @test size(nll_bb) == (nout_bb, batch_bb)
+    @test all(isfinite, nll_bb)
+
+    # bbloss
+    bbl = bbloss(k_bb, n_bb, α_bbl, β_bbl)
+    @test size(bbl) == (nout_bb, batch_bb)
+    @test all(isfinite, bbl)
+
+    # bbloss with λ=0 equals nllbb
+    @test bbloss(k_bb, n_bb, α_bbl, β_bbl, 0) ≈ nllbb(k_bb, n_bb, α_bbl, β_bbl)
+
+    # nllbb sanity: Beta(1,1), n=1, k=0 → p = 0.5 → NLL = log(2)
+    @test nllbb(Float32[0;;], Float32[1;;], Float32[1;;], Float32[1;;]) ≈ Float32.(log(2) * ones(1, 1)) atol = 1.0f-5
+
     # nllbnb
     r_bnb = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.5f0
     α_bnb = abs.(randn(Float32, nout_pg, batch_pg)) .+ 0.5f0
@@ -559,6 +701,22 @@ end
     @test all(>(0), p_pg.α)
     @test all(>(0), p_pg.β)
 
+    # EG predict returns NamedTuple with α, β
+    m_eg = Chain(Dense(3 => 10, relu), EG(10 => 2))
+    p_eg = predict(m_eg, x)
+    @test p_eg isa NamedTuple{(:α, :β)}
+    @test size(p_eg.α) == (2, 5)
+    @test all(>(0), p_eg.α)
+    @test all(>(0), p_eg.β)
+
+    # BB predict returns NamedTuple with α, β
+    m_bb = Chain(Dense(3 => 10, relu), BB(10 => 2))
+    p_bb = predict(m_bb, x)
+    @test p_bb isa NamedTuple{(:α, :β)}
+    @test size(p_bb.α) == (2, 5)
+    @test all(>(0), p_bb.α)
+    @test all(>(0), p_bb.β)
+
     # BNB predict returns NamedTuple with r, α, β
     m_bnb = Chain(Dense(3 => 10, relu), BNB(10 => 2))
     p_bnb = predict(m_bnb, x)
@@ -581,6 +739,24 @@ end
     @test size(r_nig.ŷ) == (2, 5)
     @test size(r_nig.epistemic) == (2, 5)
     @test size(r_nig.aleatoric) == (2, 5)
+
+    # EG: ŷ = β/(α-1), both uncertainties present
+    m_eg = Chain(Dense(3 => 10, relu), EG(10 => 2))
+    r_eg = predictive(m_eg, x)
+    @test r_eg isa NamedTuple{(:ŷ, :epistemic, :aleatoric, :params)}
+    @test size(r_eg.ŷ) == (2, 5)
+    @test all(>(0), r_eg.ŷ)
+    @test size(r_eg.epistemic) == (2, 5)
+    @test size(r_eg.aleatoric) == (2, 5)
+
+    # BB: ŷ = α/(α+β), both uncertainties present
+    m_bb = Chain(Dense(3 => 10, relu), BB(10 => 2))
+    r_bb = predictive(m_bb, x)
+    @test r_bb.ŷ ≈ r_bb.params.α ./ (r_bb.params.α .+ r_bb.params.β)
+    @test all(>(0), r_bb.ŷ)
+    @test all(<(1), r_bb.ŷ)
+    @test size(r_bb.epistemic) == (2, 5)
+    @test size(r_bb.aleatoric) == (2, 5)
 
     # PG: ŷ = α/β
     m_pg = Chain(Dense(3 => 10, relu), PG(10 => 2))
@@ -685,6 +861,27 @@ end
     end
     @test isfinite(loss_fd)
     @test !isnothing(grads_fd[1])
+
+    # bbloss
+    k_bb = Float32.(rand(0:3, 2, 5))
+    n_bb = k_bb .+ Float32.(rand(1:5, 2, 5))
+    m_bb = Chain(Dense(3 => 10, relu), BB(10 => 2))
+    loss_bb, grads_bb = Flux.withgradient(m_bb) do m
+        α, β = splitbb(m(x))
+        sum(bbloss(k_bb, n_bb, α, β))
+    end
+    @test isfinite(loss_bb)
+    @test !isnothing(grads_bb[1])
+
+    # egloss
+    y_pos = abs.(randn(Float32, 2, 5)) .+ 0.1f0
+    m_eg = Chain(Dense(3 => 10, relu), EG(10 => 2))
+    loss_eg, grads_eg = Flux.withgradient(m_eg) do m
+        α, β = spliteg(m(x))
+        sum(egloss(y_pos, α, β))
+    end
+    @test isfinite(loss_eg)
+    @test !isnothing(grads_eg[1])
 
     # pgloss
     y_counts = Float32.(rand(0:10, 2, 5))

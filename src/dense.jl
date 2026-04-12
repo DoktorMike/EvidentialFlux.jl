@@ -127,6 +127,101 @@ end
 (a::PG)(x::AbstractArray) = _reshape_call(a, x)
 
 """
+    EG(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
+    EG(W::AbstractMatrix, [bias, σ])
+
+Create a fully connected layer which implements an Exponential-Gamma evidential
+model for positive continuous regression (durations, prices, distances, etc.).
+Places a Gamma(α, β) prior over the Exponential rate parameter λ, yielding a
+Lomax (Pareto Type II) marginal likelihood.
+
+The output has shape `(out*2, batch...)` containing `[α, β]` stacked vertically,
+where both α and β are passed through `σ` to ensure positivity.
+
+Use with `egloss` for training and `spliteg` / `split_params(EG, y)` to
+decompose the output. The expected value is `E[y] = β/(α-1)` for α > 1.
+
+# Arguments:
+- `(in, out)`: number of input features and output positive targets
+- `σ`: activation ensuring positivity (default: softplus)
+- `init`: weight initialisation function (default: `glorot_uniform`)
+- `bias`: whether to include a trainable bias vector
+"""
+struct EG{F, M <: AbstractMatrix, B} <: AbstractEvidentialLayer
+    W::M
+    b::B
+    σ::F
+    function EG(W::M, b = true, σ::F = NNlib.softplus) where {M <: AbstractMatrix, F}
+        b = Flux.create_bias(W, b, size(W, 1))
+        return new{F, M, typeof(b)}(W, b, σ)
+    end
+end
+
+function EG(
+        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+        init = Flux.glorot_uniform, bias = true
+    )
+    return EG(init(out * 2, in), bias, σ)
+end
+
+Flux.@layer EG
+
+function (a::EG)(x::AbstractVecOrMat)
+    o = a.W * x .+ a.b
+    α_raw, β_raw = _split_equal(o, 2)
+    return vcat(a.σ.(α_raw), a.σ.(β_raw))
+end
+
+(a::EG)(x::AbstractArray) = _reshape_call(a, x)
+
+"""
+    BB(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
+    BB(W::AbstractMatrix, [bias, σ])
+
+Create a fully connected layer which implements a Binomial-Beta evidential model
+for proportion/success-rate estimation. Places a Beta(α, β) prior over the
+Binomial success probability `p`, yielding a Beta-Binomial marginal likelihood.
+
+The output has shape `(out*2, batch...)` containing `[α, β]` stacked vertically,
+where both α and β are passed through `σ` to ensure positivity.
+
+Use with `bbloss` for training and `splitbb` / `split_params(BB, y)` to
+decompose the output. The predicted probability is `E[p] = α/(α+β)`.
+
+# Arguments:
+- `(in, out)`: number of input features and output proportion targets
+- `σ`: activation ensuring positivity (default: softplus)
+- `init`: weight initialisation function (default: `glorot_uniform`)
+- `bias`: whether to include a trainable bias vector
+"""
+struct BB{F, M <: AbstractMatrix, B} <: AbstractEvidentialLayer
+    W::M
+    b::B
+    σ::F
+    function BB(W::M, b = true, σ::F = NNlib.softplus) where {M <: AbstractMatrix, F}
+        b = Flux.create_bias(W, b, size(W, 1))
+        return new{F, M, typeof(b)}(W, b, σ)
+    end
+end
+
+function BB(
+        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+        init = Flux.glorot_uniform, bias = true
+    )
+    return BB(init(out * 2, in), bias, σ)
+end
+
+Flux.@layer BB
+
+function (a::BB)(x::AbstractVecOrMat)
+    o = a.W * x .+ a.b
+    α_raw, β_raw = _split_equal(o, 2)
+    return vcat(a.σ.(α_raw), a.σ.(β_raw))
+end
+
+(a::BB)(x::AbstractArray) = _reshape_call(a, x)
+
+"""
     BNB(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
     BNB(W::AbstractMatrix, [bias, σ])
 

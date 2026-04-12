@@ -79,6 +79,8 @@ The same pattern applies to all layers:
 
 - **NIG**: Normal likelihood, NIG prior, Student-T marginal
 - **PG**: Poisson likelihood, Gamma prior, Negative Binomial marginal
+- **EG**: Exponential likelihood, Gamma prior, Lomax marginal
+- **BB**: Binomial likelihood, Beta prior, Beta-Binomial marginal
 - **BNB**: Negative Binomial likelihood, Beta prior, Beta-NB marginal
 - **DIR**: Categorical likelihood, Dirichlet prior, Dirichlet-Multinomial marginal
 - **FDIR**: Categorical likelihood, Flexible Dirichlet prior, mixture of Dir-Multinomial

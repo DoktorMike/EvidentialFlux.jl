@@ -15,6 +15,14 @@ Wrap DIR layer output into a NamedTuple `(α,)`.
 
 Split PG layer output into a NamedTuple `(α, β)`.
 
+    split_params(::Type{<:EG}, y)
+
+Split EG layer output into a NamedTuple `(α, β)`.
+
+    split_params(::Type{<:BB}, y)
+
+Split BB layer output into a NamedTuple `(α, β)`.
+
     split_params(::Type{<:BNB}, y)
 
 Split BNB layer output into a NamedTuple `(r, α, β)`.
@@ -29,6 +37,12 @@ split_params(::Type{<:NIG}, y) = let (γ, ν, α, β) = _split_equal(y, 4)
     (γ = γ, ν = ν, α = α, β = β)
 end
 split_params(::Type{<:PG}, y) = let (α, β) = _split_equal(y, 2)
+    (α = α, β = β)
+end
+split_params(::Type{<:EG}, y) = let (α, β) = _split_equal(y, 2)
+    (α = α, β = β)
+end
+split_params(::Type{<:BB}, y) = let (α, β) = _split_equal(y, 2)
     (α = α, β = β)
 end
 split_params(::Type{<:BNB}, y) = let (r, α, β) = _split_equal(y, 3)
@@ -103,6 +117,34 @@ The input `y` should have shape `(nout*2, batch...)`.
 - `(α, β)`: tuple of arrays each with shape `(nout, batch...)`
 """
 splitpg(y) = let p = split_params(PG, y); (p.α, p.β) end
+
+"""
+    spliteg(y)
+
+Splits the concatenated output of an EG layer into its two components: α, β.
+The input `y` should have shape `(nout*2, batch...)`.
+
+# Arguments:
+- `y`: the concatenated EG output with shape `(nout*2, batch...)`
+
+# Returns:
+- `(α, β)`: tuple of arrays each with shape `(nout, batch...)`
+"""
+spliteg(y) = let p = split_params(EG, y); (p.α, p.β) end
+
+"""
+    splitbb(y)
+
+Splits the concatenated output of a BB layer into its two components: α, β.
+The input `y` should have shape `(nout*2, batch...)`.
+
+# Arguments:
+- `y`: the concatenated BB output with shape `(nout*2, batch...)`
+
+# Returns:
+- `(α, β)`: tuple of arrays each with shape `(nout, batch...)`
+"""
+splitbb(y) = let p = split_params(BB, y); (p.α, p.β) end
 
 """
     splitbnb(y)
@@ -244,6 +286,56 @@ MVE has no epistemic uncertainty — it only models aleatoric.
 aleatoric(::Type{<:MVE}, σ) = σ
 
 """
+    epistemic(::Type{<:EG}, α, β)
+
+Epistemic uncertainty for the Exponential-Gamma model: the variance of the
+expected duration `E[Y|λ] = 1/λ` under the Gamma prior.
+
+    Var[1/λ] = β² / ((α-1)²(α-2))
+
+Requires α > 2 for the moments to exist; α is clamped internally.
+"""
+function epistemic(::Type{<:EG}, α, β)
+    α_c = max.(α, 2 .+ eps(eltype(α)))
+    return @. β^2 / ((α_c - 1)^2 * (α_c - 2))
+end
+
+"""
+    aleatoric(::Type{<:EG}, α, β)
+
+Aleatoric uncertainty for the Exponential-Gamma model: the expected Exponential
+variance under the Gamma prior.
+
+    E[Var[Y|λ]] = E[1/λ²] = β² / ((α-1)(α-2))
+
+Requires α > 2 for the moments to exist; α is clamped internally.
+"""
+function aleatoric(::Type{<:EG}, α, β)
+    α_c = max.(α, 2 .+ eps(eltype(α)))
+    return @. β^2 / ((α_c - 1) * (α_c - 2))
+end
+
+"""
+    epistemic(::Type{<:BB}, α, β)
+
+Epistemic uncertainty for the Binomial-Beta model: the variance of the
+success probability under the Beta prior.
+
+    Var[p] = αβ / ((α+β)²(α+β+1))
+"""
+epistemic(::Type{<:BB}, α, β) = @. α * β / ((α + β)^2 * (α + β + 1))
+
+"""
+    aleatoric(::Type{<:BB}, α, β)
+
+Aleatoric uncertainty for the Binomial-Beta model: the expected Bernoulli
+variance under the Beta prior.
+
+    E[p(1-p)] = αβ / ((α+β)(α+β+1))
+"""
+aleatoric(::Type{<:BB}, α, β) = @. α * β / ((α + β) * (α + β + 1))
+
+"""
     epistemic(::Type{<:PG}, α, β)
 
 Epistemic uncertainty for the Poisson-Gamma model: the variance of the
@@ -353,7 +445,12 @@ Returns the point prediction in data space given the raw distributional
 parameters. This is the mean of the posterior predictive distribution.
 """
 predictive_mean(::Type{<:NIG}, p) = p.γ
+predictive_mean(::Type{<:BB}, p) = p.α ./ (p.α .+ p.β)
 predictive_mean(::Type{<:PG}, p) = p.α ./ p.β
+function predictive_mean(::Type{<:EG}, p)
+    α_c = max.(p.α, 1 .+ eps(eltype(p.α)))
+    return p.β ./ (α_c .- 1)
+end
 predictive_mean(::Type{<:BNB}, p) = p.r .* p.α ./ p.β
 predictive_mean(::Type{<:DIR}, α) = α ./ sum(α, dims = 1)
 predictive_mean(::Type{<:FDIR}, p) = (p.α .+ p.τ .* p.p) ./ (sum(p.α, dims = 1) .+ p.τ)
@@ -389,6 +486,22 @@ function predictive(::Type{T}, m, x) where {T <: NIG}
     return (ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.ν, p.α, p.β),
         aleatoric = aleatoric(T, p.ν, p.α, p.β),
+        params = p)
+end
+
+function predictive(::Type{T}, m, x) where {T <: BB}
+    p = predict(T, m, x)
+    return (ŷ = predictive_mean(T, p),
+        epistemic = epistemic(T, p.α, p.β),
+        aleatoric = aleatoric(T, p.α, p.β),
+        params = p)
+end
+
+function predictive(::Type{T}, m, x) where {T <: EG}
+    p = predict(T, m, x)
+    return (ŷ = predictive_mean(T, p),
+        epistemic = epistemic(T, p.α, p.β),
+        aleatoric = aleatoric(T, p.α, p.β),
         params = p)
 end
 

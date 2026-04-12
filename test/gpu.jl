@@ -36,6 +36,20 @@ using Test
     @test ŷ_pg isa CuArray
     @test all(>(0), Array(ŷ_pg))  # α, β both > 0
 
+    # EG
+    m_eg = EG(3 => 2) |> gpu
+    ŷ_eg = m_eg(x)
+    @test size(ŷ_eg) == (4, 10)
+    @test ŷ_eg isa CuArray
+    @test all(>(0), Array(ŷ_eg))
+
+    # BB
+    m_bb = BB(3 => 2) |> gpu
+    ŷ_bb = m_bb(x)
+    @test size(ŷ_bb) == (4, 10)
+    @test ŷ_bb isa CuArray
+    @test all(>(0), Array(ŷ_bb))
+
     # BNB
     m_bnb = BNB(3 => 2) |> gpu
     ŷ_bnb = m_bnb(x)
@@ -68,6 +82,18 @@ end
     q_pg = split_params(PG, m_pg(x))
     @test q_pg.α isa CuArray
     @test size(q_pg.α) == (2, 10)
+
+    # EG
+    m_eg = EG(3 => 2) |> gpu
+    q_eg = split_params(EG, m_eg(x))
+    @test q_eg.α isa CuArray
+    @test size(q_eg.α) == (2, 10)
+
+    # BB
+    m_bb = BB(3 => 2) |> gpu
+    q_bb = split_params(BB, m_bb(x))
+    @test q_bb.α isa CuArray
+    @test size(q_bb.α) == (2, 10)
 
     # BNB
     m_bnb = BNB(3 => 2) |> gpu
@@ -117,6 +143,20 @@ end
     @test r_pg isa NamedTuple{(:α, :β)}
     @test r_pg.α isa CuArray
     @test size(r_pg.α) == (2, 5)
+
+    # EG predict
+    m_eg = Chain(Dense(3 => 10, relu), EG(10 => 2)) |> gpu
+    r_eg = predict(m_eg, x)
+    @test r_eg isa NamedTuple{(:α, :β)}
+    @test r_eg.α isa CuArray
+    @test size(r_eg.α) == (2, 5)
+
+    # BB predict
+    m_bb = Chain(Dense(3 => 10, relu), BB(10 => 2)) |> gpu
+    r_bb = predict(m_bb, x)
+    @test r_bb isa NamedTuple{(:α, :β)}
+    @test r_bb.α isa CuArray
+    @test size(r_bb.α) == (2, 5)
 
     # BNB predict
     m_bnb = Chain(Dense(3 => 10, relu), BNB(10 => 2)) |> gpu
@@ -200,6 +240,23 @@ end
     @test size(pl) == (nout, batch)
     @test all(isfinite, Array(pl))
 
+    # egloss
+    y_pos = CUDA.rand(Float32, nout, batch) .+ 0.1f0
+    α_eg = CUDA.rand(Float32, nout, batch) .+ 0.5f0
+    β_eg = CUDA.rand(Float32, nout, batch) .+ 0.5f0
+    el = egloss(y_pos, α_eg, β_eg)
+    @test size(el) == (nout, batch)
+    @test all(isfinite, Array(el))
+
+    # bbloss
+    k_bb = cu(Float32.([0 1 2 3 4; 1 0 3 2 1; 2 2 1 0 3]))
+    n_bb = k_bb .+ cu(Float32.([5 4 3 2 1; 4 5 2 3 4; 3 3 4 5 2]))
+    α_bb = CUDA.rand(Float32, nout, batch) .+ 0.5f0
+    β_bb = CUDA.rand(Float32, nout, batch) .+ 0.5f0
+    bbl = bbloss(k_bb, n_bb, α_bb, β_bb)
+    @test size(bbl) == (nout, batch)
+    @test all(isfinite, Array(bbl))
+
     # bnbloss
     r_bnb = CUDA.rand(Float32, nout, batch) .+ 0.5f0
     α_bnb = CUDA.rand(Float32, nout, batch) .+ 0.5f0
@@ -279,6 +336,27 @@ end
     @test isfinite(loss_pg)
     @test !isnothing(grads_pg[1])
 
+    # egloss
+    y_pos = CUDA.rand(Float32, 2, 5) .+ 0.1f0
+    m_eg = Chain(Dense(3 => 10, relu), EG(10 => 2)) |> gpu
+    loss_eg, grads_eg = Flux.withgradient(m_eg) do m
+        α, β = spliteg(m(x))
+        sum(egloss(y_pos, α, β))
+    end
+    @test isfinite(loss_eg)
+    @test !isnothing(grads_eg[1])
+
+    # bbloss
+    k_bb_g = cu(Float32.([0 1 2 3 4; 1 0 3 2 1]))
+    n_bb_g = k_bb_g .+ cu(Float32.([5 4 3 2 1; 4 5 2 3 4]))
+    m_bb = Chain(Dense(3 => 10, relu), BB(10 => 2)) |> gpu
+    loss_bb, grads_bb = Flux.withgradient(m_bb) do m
+        α, β = splitbb(m(x))
+        sum(bbloss(k_bb_g, n_bb_g, α, β))
+    end
+    @test isfinite(loss_bb)
+    @test !isnothing(grads_bb[1])
+
     # bnbloss
     m_bnb = Chain(Dense(3 => 10, relu), BNB(10 => 2)) |> gpu
     loss_bnb, grads_bnb = Flux.withgradient(m_bnb) do m
@@ -334,6 +412,18 @@ end
     m_pg = PG(3 => 2)
     ŷ_cpu = m_pg(x_cpu)
     ŷ_gpu = (m_pg |> gpu)(x_gpu)
+    @test Array(ŷ_gpu) ≈ ŷ_cpu atol = 1.0f-5
+
+    # EG
+    m_eg = EG(3 => 2)
+    ŷ_cpu = m_eg(x_cpu)
+    ŷ_gpu = (m_eg |> gpu)(x_gpu)
+    @test Array(ŷ_gpu) ≈ ŷ_cpu atol = 1.0f-5
+
+    # BB
+    m_bb = BB(3 => 2)
+    ŷ_cpu = m_bb(x_cpu)
+    ŷ_gpu = (m_bb |> gpu)(x_gpu)
     @test Array(ŷ_gpu) ≈ ŷ_cpu atol = 1.0f-5
 
     # BNB
