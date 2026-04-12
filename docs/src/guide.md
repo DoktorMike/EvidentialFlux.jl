@@ -13,6 +13,7 @@ Ask yourself: **what does my target variable look like?**
 - **One of K classes** → [DIR](#Classification-targets-DIR) or [FDIR](#Flexible-classification-FDIR)
 - **Counts per category** (multiple categories, totals vary) → [DIR + dirmultloss](#Count-vectors-across-categories)
 - **Proportions / success rates** (k successes out of n trials) → [BB](#Proportions-and-success-rates-BB)
+- **Binary yes/no outcomes** (probability estimation) → [BB with n=1](#Binary-outcomes-(Beta-Bernoulli)-BB-with-n1)
 
 ## Real-valued targets — NIG
 
@@ -286,6 +287,43 @@ r.aleatoric  # E[p(1-p)]: inherent Bernoulli variance
 **Note:** `predictive_mean` defaults to `n=1` (probability scale). For expected
 counts, pass `n` explicitly: `predictive_mean(BB, params, n)`.
 
+## Binary outcomes (Beta-Bernoulli) — BB with n=1
+
+**Use when** each observation is a binary yes/no outcome (not one-hot
+classification, but a probability you want to estimate with uncertainty).
+
+**Real-world examples:**
+- Will this patient respond to treatment? (per-patient probability)
+- Will this loan default? (per-loan probability)
+- Will this user churn? (per-user probability)
+- Will this component fail within warranty? (per-component probability)
+- Is this transaction fraudulent? (per-transaction probability)
+
+The Beta-Bernoulli model is a special case of the Binomial-Beta with `n=1`.
+There is no separate layer — use `BB` and pass `n = 1` (a scalar) to the loss:
+
+```julia
+model = Chain(Dense(10 => 64, relu), Dense(64 => 64, relu), BB(64 => 1))
+
+# y is 0 or 1 per observation
+loss, grads = Flux.withgradient(model) do m
+    α, β = splitbb(m(x))
+    mean(bbloss(y, 1, α, β, 0.1))   # n=1 for Bernoulli
+end
+
+r = predictive(model, x_test)
+r.ŷ          # predicted probability of success
+r.epistemic  # high when the model lacks evidence (few similar training samples)
+r.aleatoric  # high when the true probability is near 0.5 (inherently uncertain)
+```
+
+**Why BB instead of DIR with K=2?** Both model binary outcomes, but they differ
+in framing. DIR treats it as "which class?" and gives epistemic uncertainty
+only. BB treats it as "what's the probability?" and gives both epistemic
+(uncertainty about p) and aleatoric (inherent coin-flip variance). Use BB when
+you care about the calibrated probability, DIR when you care about the
+classification decision.
+
 ## Summary table
 
 | Problem | Layer | Loss | Prediction | Example |
@@ -299,3 +337,4 @@ counts, pass `n` explicitly: `predictive_mean(BB, params, n)`.
 | Calibrated classification | `FDIR` | `fdirloss` | (α+τp)/(Σα+τ) | Safety-critical AI |
 | Count vectors | `DIR` | `dirmultloss` | α/Σα | Bag-of-words NLP |
 | Proportions | `BB` | `bbloss` | α/(α+β) | A/B test conversion |
+| Binary outcomes | `BB` | `bbloss(y, 1, ...)` | α/(α+β) | Loan default prediction |
