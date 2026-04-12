@@ -377,13 +377,13 @@ end
     @test size(l1) == (nout, batch)
     @test all(isfinite, l1)
 
-    # nigloss2
-    l2 = nigloss2(y, γ, ν, α, β)
+    # nigloss_scaled
+    l2 = nigloss_scaled(y, γ, ν, α, β)
     @test size(l2) == (nout, batch)
     @test all(isfinite, l2)
 
-    # nigloss3
-    l3 = nigloss3(y, γ, ν, α, β)
+    # nigloss_ureg
+    l3 = nigloss_ureg(y, γ, ν, α, β)
     @test size(l3) == (nout, batch)
     @test all(isfinite, l3)
 
@@ -401,18 +401,18 @@ end
     @test all(isfinite, dl_early)
     @test all(isfinite, dl_late)
 
-    # dirloss2 returns (1, B) and is finite
-    dl2 = dirloss2(y_oh, α_dir, 1)
+    # dirloss_cor returns (1, B) and is finite
+    dl2 = dirloss_cor(y_oh, α_dir, 1)
     @test size(dl2) == (1, 5)
     @test all(isfinite, dl2)
 
-    # dirloss2 correction is inactive when all evidence is high (o_gt > 0),
-    # so dirloss2 == dirloss for large α
+    # dirloss_cor correction is inactive when all evidence is high (o_gt > 0),
+    # so dirloss_cor == dirloss for large α
     α_high = ones(Float32, nclasses, 5) .+ 10.0f0
-    @test dirloss2(y_oh, α_high, 5) ≈ dirloss(y_oh, α_high, 5)
+    @test dirloss_cor(y_oh, α_high, 5) ≈ dirloss(y_oh, α_high, 5)
 
-    # dirloss2 ≥ dirloss (correction term is non-negative)
-    @test all(dirloss2(y_oh, α_dir, 1) .≥ dirloss(y_oh, α_dir, 1) .- eps(Float32))
+    # dirloss_cor ≥ dirloss (correction term is non-negative)
+    @test all(dirloss_cor(y_oh, α_dir, 1) .≥ dirloss(y_oh, α_dir, 1) .- eps(Float32))
 
     # dirmultloss returns (1, B) and is finite
     y_counts_dm = Float32.([3 0 1; 2 5 0; 0 1 4])  # (3, 3) count vectors
@@ -636,18 +636,18 @@ end
     @test isfinite(loss)
     @test !isnothing(grads[1])
 
-    # nigloss2
+    # nigloss_scaled
     loss2, grads2 = Flux.withgradient(m) do m
         γ, ν, α, β = splitnig(m(x))
-        sum(nigloss2(y, γ, ν, α, β))
+        sum(nigloss_scaled(y, γ, ν, α, β))
     end
     @test isfinite(loss2)
     @test !isnothing(grads2[1])
 
-    # nigloss3
+    # nigloss_ureg
     loss3, grads3 = Flux.withgradient(m) do m
         γ, ν, α, β = splitnig(m(x))
-        sum(nigloss3(y, γ, ν, α, β))
+        sum(nigloss_ureg(y, γ, ν, α, β))
     end
     @test isfinite(loss3)
     @test !isnothing(grads3[1])
@@ -661,9 +661,9 @@ end
     @test isfinite(loss_d)
     @test !isnothing(grads_d[1])
 
-    # dirloss2
+    # dirloss_cor
     loss_d2, grads_d2 = Flux.withgradient(m_dir) do m
-        sum(dirloss2(y_oh, m(x), 1))
+        sum(dirloss_cor(y_oh, m(x), 1))
     end
     @test isfinite(loss_d2)
     @test !isnothing(grads_d2[1])

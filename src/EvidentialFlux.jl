@@ -16,10 +16,13 @@ export FDIR
 
 include("losses.jl")
 export nigloss
-export nigloss2
-export nigloss3
+export nigloss_scaled
+export nigloss_ureg
+export nigloss2  # deprecated alias for nigloss_scaled
+export nigloss3  # deprecated alias for nigloss_ureg
 export dirloss
-export dirloss2
+export dirloss_cor
+export dirloss2  # deprecated alias for dirloss_cor
 export dirmultloss
 export fdirloss
 export nllpg

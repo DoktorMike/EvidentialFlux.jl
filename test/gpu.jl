@@ -152,13 +152,13 @@ end
     @test size(l1) == (nout, batch)
     @test all(isfinite, Array(l1))
 
-    # nigloss2
-    l2 = nigloss2(y, γ, ν, α, β)
+    # nigloss_scaled
+    l2 = nigloss_scaled(y, γ, ν, α, β)
     @test size(l2) == (nout, batch)
     @test all(isfinite, Array(l2))
 
-    # nigloss3
-    l3 = nigloss3(y, γ, ν, α, β)
+    # nigloss_ureg
+    l3 = nigloss_ureg(y, γ, ν, α, β)
     @test size(l3) == (nout, batch)
     @test all(isfinite, Array(l3))
 
@@ -170,8 +170,8 @@ end
     @test size(dl) == (1, 5)
     @test all(isfinite, Array(dl))
 
-    # dirloss2
-    dl2 = dirloss2(y_oh, α_dir, 1)
+    # dirloss_cor
+    dl2 = dirloss_cor(y_oh, α_dir, 1)
     @test size(dl2) == (1, 5)
     @test all(isfinite, Array(dl2))
 
@@ -229,18 +229,18 @@ end
     @test isfinite(loss)
     @test !isnothing(grads[1])
 
-    # nigloss2
+    # nigloss_scaled
     loss2, grads2 = Flux.withgradient(m) do m
         γ, ν, α, β = splitnig(m(x))
-        sum(nigloss2(y, γ, ν, α, β))
+        sum(nigloss_scaled(y, γ, ν, α, β))
     end
     @test isfinite(loss2)
     @test !isnothing(grads2[1])
 
-    # nigloss3
+    # nigloss_ureg
     loss3, grads3 = Flux.withgradient(m) do m
         γ, ν, α, β = splitnig(m(x))
-        sum(nigloss3(y, γ, ν, α, β))
+        sum(nigloss_ureg(y, γ, ν, α, β))
     end
     @test isfinite(loss3)
     @test !isnothing(grads3[1])
@@ -254,9 +254,9 @@ end
     @test isfinite(loss_d)
     @test !isnothing(grads_d[1])
 
-    # dirloss2
+    # dirloss_cor
     loss_d2, grads_d2 = Flux.withgradient(m_dir) do m
-        sum(dirloss2(y_oh, m(x), 1))
+        sum(dirloss_cor(y_oh, m(x), 1))
     end
     @test isfinite(loss_d2)
     @test !isnothing(grads_d2[1])

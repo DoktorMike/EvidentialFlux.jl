@@ -56,12 +56,12 @@ losses = []
         ŷ = m(xtrn')
         γ, ν, α, β = ŷ[1, :], ŷ[2, :], ŷ[3, :], ŷ[4, :]
         sum(nigloss(ytrn, γ, ν, α, β, 0.001))
-        # Statistics.mean(nigloss3(y, γ, ν, α, β, 1, 1))
-        # Statistics.mean(nigloss2(ytrn, γ, ν, α, β, 0.001, 2))
+        # Statistics.mean(nigloss_ureg(y, γ, ν, α, β, 1, 1))
+        # Statistics.mean(nigloss_scaled(ytrn, γ, ν, α, β, 0.001, 2))
         # Statistics.mean(nigloss(ytrn, γ, ν, α, β, 0.001))
-        # sum(nigloss2(ytrn, γ, ν, α, β, 5, 2))
-        # sum(nigloss3(ytrn, γ, ν, α, β, 0.1, 0.1)) # Works sort of sometimes
-        # sum(nigloss3(ytrn, γ, ν, α, β, 0.0, 0.0)) # Works the best, i.e., only use the NLL of Student T predictive distribution
+        # sum(nigloss_scaled(ytrn, γ, ν, α, β, 5, 2))
+        # sum(nigloss_ureg(ytrn, γ, ν, α, β, 0.1, 0.1)) # Works sort of sometimes
+        # sum(nigloss_ureg(ytrn, γ, ν, α, β, 0.0, 0.0)) # Works the best, i.e., only use the NLL of Student T predictive distribution
     end
     Flux.update!(opt_state, model, grads[1])
     push!(losses, loss)

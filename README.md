@@ -35,10 +35,10 @@ provides generic `predict` and `split_params` dispatch.
 | Function | Description |
 |----------|-------------|
 | `nigloss(y, γ, ν, α, β, λ, ϵ)` | Standard evidential regression loss (Amini et al. 2020) |
-| `nigloss2(y, γ, ν, α, β, λ, p)` | Corrected DER loss (Meinert et al. 2022) |
-| `nigloss3(y, γ, ν, α, β, λ, λ₁)` | Uncertainty regularized loss (Ye et al. 2024) |
+| `nigloss_scaled(y, γ, ν, α, β, λ, p)` | Corrected DER loss (Meinert et al. 2022) |
+| `nigloss_ureg(y, γ, ν, α, β, λ, λ₁)` | Uncertainty regularized loss (Ye et al. 2024) |
 | `dirloss(y, α, t)` | Dirichlet classification loss with KL regularization, returns `(1, B)` |
-| `dirloss2(y, α, t)` | Dirichlet loss + correct evidence regularization (Pandey et al. 2025) |
+| `dirloss_cor(y, α, t)` | Dirichlet loss + correct evidence regularization (Pandey et al. 2025) |
 | `dirmultloss(y, α)` | Dirichlet-Multinomial NLL for count vector targets (reuses `DIR` layer) |
 | `fdirloss(y, α, p, τ)` | Flexible Dirichlet loss (Yoon & Kim 2025) |
 | `pgloss(y, α, β, λ)` | Poisson-Gamma count regression loss (NLL + regularizer) |
@@ -190,7 +190,7 @@ that explicitly captures aleatoric and epistemic uncertainty. See
 The [examples/](examples/) folder contains complete working examples:
 
 - [regression.jl](examples/regression.jl) -- NIG with `nigloss`
-- [regression2.jl](examples/regression2.jl) -- NIG with `nigloss2` (corrected DER)
+- [regression2.jl](examples/regression2.jl) -- NIG with `nigloss_scaled` (corrected DER)
 - [regression3.jl](examples/regression3.jl) -- NIG with LayerNorm and evidence tracking
 - [regression4.jl](examples/regression4.jl) -- MVE with parameter freezing/thawing
 - [classification.jl](examples/classification.jl) -- DIR for multi-class classification

@@ -58,28 +58,12 @@ function nigloss(y, γ, ν, α, β, λ = 1, ϵ = 1.0e-4)
 end
 
 """
-Based on Ye, K., Chen, T., Wei, H. & Zhan, L. Uncertainty Regularized
-Evidential Regression. AAAI 38, 16460–16468 (2024). this loss function handles
-training in high uncertainty areas by making sure the gradients are not 0. The
-parameters are the same as in the other nigloss functions except that here we
-have a `λ₁` controlling the extent we want to weight the uncertainty loss.
-"""
-function nigloss3(y, γ, ν, α, β, λ = 1, λ₁ = 1)
-    nll, error, reg = _nig_nll_reg(y, γ, ν, α, β)
-    unc = .- error .* log.(exp.(α .- 1) .- 1)
-    return nll .+ λ .* reg .+ λ₁ .* unc
-end
+    nigloss_scaled(y, γ, ν, α, β, λ = 1, p = 1)
 
-
-"""
-    nigloss2(y, γ, ν, α, β, λ = 1, p = 1)
-
-This is the corrected loss function for DER as recommended by Meinert, Nis,
-Jakob Gawlikowski, and Alexander Lavin. “The Unreasonable Effectiveness of Deep
-Evidential Regression.” arXiv, May 20, 2022. http://arxiv.org/abs/2205.10060.
-This is the standard loss function for Evidential Inference given a
-NormalInverseGamma posterior for the parameters of the gaussian likelihood
-function: μ and σ.
+Corrected DER loss from Meinert, Gawlikowski & Lavin, "The Unreasonable
+Effectiveness of Deep Evidential Regression" (2022). Normalizes the prediction
+error by the aleatoric uncertainty before scaling by evidence, preventing the
+network from inflating variance to reduce the regularizer.
 
 # Arguments:
 - `y`: the targets whose shape should be (O, B)
@@ -90,17 +74,41 @@ function: μ and σ.
 - `λ`: the weight to put on the regularizer (default: 1)
 - `p`: the power which to raise the scaled absolute prediction error (default: 1)
 """
-function nigloss2(y, γ, ν, α, β, λ = 1, p = 1)
+function nigloss_scaled(y, γ, ν, α, β, λ = 1, p = 1)
     nll = nllstudent(y, γ, ν, α, β)
-    # REG: Calculate regularizer based on absolute error of prediction
     uₐ = aleatoric(ν, α, β)
     error = (abs.(y - γ) ./ uₐ) .^ p
-    Φ = evidence(ν, α) # Total evidence
+    Φ = evidence(ν, α)
     reg = error .* Φ
-    # Combine negative log likelihood and regularizer
-    loss = nll + λ * reg
-    return loss
+    return nll + λ * reg
 end
+
+"""
+    nigloss_ureg(y, γ, ν, α, β, λ = 1, λ₁ = 1)
+
+Uncertainty-regularized evidential regression loss from Ye, Chen, Wei & Zhan,
+"Uncertainty Regularized Evidential Regression" (AAAI 2024). Adds a term that
+ensures non-zero gradients in high-uncertainty regions where the standard
+regularizer's gradient vanishes.
+
+# Arguments:
+- `y`: the targets whose shape should be (O, B)
+- `γ`: the γ parameter of the NIG distribution which corresponds to it's mean and whose shape should be (O, B)
+- `ν`: the ν parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+- `α`: the α parameter of the NIG distribution which relates to it's precision and whose shape should be (O, B)
+- `β`: the β parameter of the NIG distribution which relates to it's uncertainty and whose shape should be (O, B)
+- `λ`: the weight to put on the evidence regularizer (default: 1)
+- `λ₁`: the weight to put on the uncertainty loss (default: 1)
+"""
+function nigloss_ureg(y, γ, ν, α, β, λ = 1, λ₁ = 1)
+    nll, error, reg = _nig_nll_reg(y, γ, ν, α, β)
+    unc = .- error .* log.(exp.(α .- 1) .- 1)
+    return nll .+ λ .* reg .+ λ₁ .* unc
+end
+
+# Deprecated aliases
+const nigloss2 = nigloss_scaled
+const nigloss3 = nigloss_ureg
 
 # The α here is actually the α̃ which has scaled down evidence that is good.
 # the α heres is a matrix of size (K, B) or (O, B)
@@ -145,7 +153,7 @@ function dirloss(y, α, t)
 end
 
 """
-    dirloss2(y, α, t)
+    dirloss_cor(y, α, t)
 
 Dirichlet classification loss with correct evidence regularization from Pandey,
 Choi & Yu, "Generalized Regularized Evidential Deep Learning Models" (2025).
@@ -163,7 +171,7 @@ The total loss is `ℒ_evid + λₜ·ℒ_inc + ℒ_cor` where `ℒ_cor = -𝟙(o
 - `α`: Dirichlet concentration parameters from a DIR layer, shape `(K, B)`
 - `t`: current epoch (used for KL annealing on `ℒ_inc`)
 """
-function dirloss2(y, α, t)
+function dirloss_cor(y, α, t)
     base = dirloss(y, α, t)
     # ℒ_cor: Correct evidence regularization
     K = first(size(α))
@@ -174,6 +182,9 @@ function dirloss2(y, α, t)
     cor = .- (o_gt .< 0) .* ν .* o_gt
     return base .+ cor
 end
+
+# Deprecated alias
+const dirloss2 = dirloss_cor
 
 """
     dirmultloss(y, α)
