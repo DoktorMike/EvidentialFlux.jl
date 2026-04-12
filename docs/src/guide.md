@@ -338,3 +338,83 @@ classification decision.
 | Count vectors | `DIR` | `dirmultloss` | α/Σα | Bag-of-words NLP |
 | Proportions | `BB` | `bbloss` | α/(α+β) | A/B test conversion |
 | Binary outcomes | `BB` | `bbloss(y, 1, ...)` | α/(α+β) | Loan default prediction |
+
+## Special cases and modeling tips
+
+Several common modeling scenarios don't need a dedicated layer — they fall out
+as special cases of the layers above. This section helps you recognize them.
+
+### Binary classification — DIR with K=2
+
+If you only care about the class *decision* (not the calibrated probability),
+use `DIR(in => 2)` instead of `BB`. This is the standard evidential approach
+to binary classification:
+
+```julia
+model = Chain(Dense(10 => 64, relu), DIR(64 => 2))
+
+loss, grads = Flux.withgradient(model) do m
+    sum(dirloss(y_onehot, m(x), epoch))  # y_onehot is (2, B)
+end
+
+r = predictive(model, x_test)
+predicted_class = r.ŷ[1, :] .> 0.5   # class decision
+r.epistemic                           # OOD detection signal
+```
+
+**DIR with K=2 vs BB:** DIR gives you epistemic uncertainty ("I don't know which
+class") but no aleatoric. BB gives you both ("I think the probability is around
+0.7, but I'm not sure" vs "the probability really is 0.5 — it's a coin flip").
+Use DIR for OOD detection, BB for calibrated probability estimation.
+
+### Categorical via type II maximum likelihood — DIR + dirmultloss with n=1
+
+If you pass one-hot encoded targets (counts summing to 1) to `dirmultloss`
+instead of `dirloss`, you get the Categorical-Dirichlet marginal likelihood —
+the proper type II ML loss for single-observation classification:
+
+```julia
+model = Chain(Dense(10 => 64, relu), DIR(64 => 5))
+
+loss, grads = Flux.withgradient(model) do m
+    sum(dirmultloss(y_onehot, m(x)))  # y_onehot is one-hot, sums to 1
+end
+```
+
+This is an alternative to `dirloss` (which uses Bayes Risk MSE + KL
+regularizer). The marginal likelihood naturally balances fit and complexity
+without a separate regularization hyperparameter. Try it if you find `dirloss`
+sensitive to the KL annealing schedule.
+
+### FDIR as a drop-in upgrade for DIR
+
+Standard DIR is a special case of FDIR (when τ=1 and p=α/Σα). This means you
+can always swap `DIR` → `FDIR` without changing your problem setup — FDIR
+is strictly more expressive:
+
+```julia
+# Before
+model = Chain(Dense(10 => 64, relu), DIR(64 => 5))
+# After — same architecture, better uncertainty calibration
+model = Chain(Dense(10 => 64, relu), FDIR(64 => 5))
+```
+
+The trade-offs: FDIR adds ~1.8% more parameters (three output heads vs one),
+uses `fdirloss` instead of `dirloss`/`dirloss_cor`, and needs no KL annealing
+hyperparameter. Switch to FDIR when DIR's OOD detection metrics plateau.
+
+### Geometric / waiting-time counts — BNB with r=1
+
+The Geometric distribution (number of trials until first success) is a special
+case of the Negative Binomial with r=1. If your BNB model learns r≈1, it's
+effectively modeling geometric data:
+
+**Real-world examples:**
+- Number of sales calls before closing a deal
+- Number of job applications before getting an offer
+- Number of coin flips before heads
+- Number of server requests before a timeout
+
+You don't need to constrain r=1 manually — BNB can learn it. But if you know
+your data is geometric, you could use `PG` instead (since the Geometric is also
+a special case of Poisson processes in the limit).
