@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.9.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.8.0...v1.9.0) (2026-04-12)
+
+
+### Features
+
+* added beta binomial and exponential gamma layers for proportions and positive continues responses respectively. ([1f8826d](https://github.com/DoktorMike/EvidentialFlux.jl/commit/1f8826db14d28565a92db777874944fddbc15f2d))
+
+
+### Bug Fixes
+
+* fixed an inconsistency when predict_mean was actually predicting in parameter space instead of data space. ([89d05f7](https://github.com/DoktorMike/EvidentialFlux.jl/commit/89d05f7b72511dbbd58eaf60542eb4ea06dcc9d0))
+
+
+### Other
+
+* changed the numbered loss names to something more descriptive {layer}loss_{extension} kind of.. don't judge me, naming is hard. ([1417b5c](https://github.com/DoktorMike/EvidentialFlux.jl/commit/1417b5c7efda0a2b01ab9d383943d5d250295c6e))
+
+
+### Documentation
+
+* added a section that catches people looking for the bernoulli distribution for normal classification purposes and outlier detection. ([334ab68](https://github.com/DoktorMike/EvidentialFlux.jl/commit/334ab68ed5e5f992f32eace20f5731b01987acea))
+* cleaned up documentation and put some more guidance for how to actually use this package, especially on how to deal with the evidence regularization parameters. ([ff911b1](https://github.com/DoktorMike/EvidentialFlux.jl/commit/ff911b153894c296789eca5f936cd7353101927c))
+* created a guide for when to use which layer depending on common use cases which is hopefully useful for practitioners. ([ee88346](https://github.com/DoktorMike/EvidentialFlux.jl/commit/ee883460030ac91c70592b6a18191c0dc9064367))
+* documented a few parallels regarding the supported distributions we have and how they can be used as special cases for distributions not explicitely supported. ([8a0edbc](https://github.com/DoktorMike/EvidentialFlux.jl/commit/8a0edbc2e02304550ff1bb93ac78eef9608d0643))
+
 ## [1.8.0](https://github.com/DoktorMike/EvidentialFlux.jl/compare/v1.7.0...v1.8.0) (2026-04-11)
 
 
