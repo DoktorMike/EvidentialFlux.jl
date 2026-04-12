@@ -27,6 +27,7 @@ pass.
 | [`EG`](@ref) | Exponential | Gamma | Lomax | Positive continuous regression |
 | [`BB`](@ref) | Binomial | Beta | Beta-Binomial | Proportion estimation |
 | [`BNB`](@ref) | Negative Binomial | Beta | Beta-NB | Overdispersed counts |
+| [`ZIP`](@ref) | Zero-Inflated Poisson | Beta × Gamma | Zero-Inflated NB | Zero-inflated counts |
 | [`DIR`](@ref) | Categorical | Dirichlet | Dir-Multinomial | Classification |
 | [`FDIR`](@ref) | Categorical | Flexible Dirichlet | Mixture of Dir-Mult | Calibrated classification |
 | [`MVE`](@ref) | Normal | _(point estimate)_ | Normal | Simple variance estimation |
@@ -155,6 +156,7 @@ PG
 EG
 BB
 BNB
+ZIP
 DIR
 FDIR
 MVE
@@ -182,6 +184,8 @@ bbloss
 nllbb
 bnbloss
 nllbnb
+ziploss
+nllzip
 ```
 
 ### Loss functions — Classification
@@ -206,6 +210,7 @@ splitpg
 spliteg
 splitbb
 splitbnb
+splitzip
 splitfdir
 ```
 

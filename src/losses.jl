@@ -458,3 +458,68 @@ function bnbloss(y, r, α, β, λ = 1)
     reg = abs.(y .- ŷ) .* (α .+ β)
     return nll .+ λ .* reg
 end
+
+"""
+    nllzip(y, α_π, β_π, α_λ, β_λ)
+
+Negative log-likelihood of the Zero-Inflated Negative Binomial marginal
+obtained by integrating out π ~ Beta(α_π, β_π) and λ ~ Gamma(α_λ, β_λ)
+from the ZIP(π, λ) likelihood:
+
+    p(0|α_π,β_π,α_λ,β_λ) = E[π] + E[1-π]·p_NB(0|α_λ,β_λ)
+    p(y|α_π,β_π,α_λ,β_λ) = E[1-π]·p_NB(y|α_λ,β_λ)   for y > 0
+
+where `p_NB` is the Negative Binomial PMF from the Poisson-Gamma conjugacy
+and `E[π] = α_π/(α_π+β_π)`.
+
+Use this with the `ZIP` layer for evidential zero-inflated count regression.
+
+# Arguments:
+- `y`: non-negative count targets, shape `(O, B)`
+- `α_π`: Beta shape parameter for zero-inflation (> 0), shape `(O, B)`
+- `β_π`: Beta shape parameter for zero-inflation (> 0), shape `(O, B)`
+- `α_λ`: Gamma shape parameter for Poisson rate (> 0), shape `(O, B)`
+- `β_λ`: Gamma rate parameter for Poisson rate (> 0), shape `(O, B)`
+"""
+function nllzip(y, α_π, β_π, α_λ, β_λ)
+    logΓ = SpecialFunctions.loggamma
+    S_π = α_π .+ β_π
+
+    # NegBin log-PMF from Poisson-Gamma conjugacy (= -nllpg)
+    log_pNB = logΓ.(y .+ α_λ) .- logΓ.(y .+ 1) .- logΓ.(α_λ) .+
+        α_λ .* log.(β_λ) .- (y .+ α_λ) .* log.(β_λ .+ 1)
+
+    # Log mixing weights from Beta prior on π
+    log_1mπ = log.(β_π) .- log.(S_π)       # log E[1-π]
+    log_count = log_1mπ .+ log_pNB          # log of count component
+
+    # For y=0: logaddexp(log E[π], log_count) via softplus identity
+    # For y>0: log_count (zero-inflation term does not contribute)
+    log_π = log.(α_π) .- log.(S_π)          # log E[π]
+    is_zero = ignore_derivatives(y .== 0)
+    ll = log_count .+ is_zero .* NNlib.softplus.(log_π .- log_count)
+
+    return .-ll
+end
+
+"""
+    ziploss(y, α_π, β_π, α_λ, β_λ, λ = 1)
+
+Loss for Zero-Inflated Poisson evidential count regression. Combines the
+ZINB NLL (from `nllzip`) with a regularizer that penalizes high confidence
+when the predicted count is far from the observed count.
+
+# Arguments:
+- `y`: non-negative count targets, shape `(O, B)`
+- `α_π`: Beta shape parameter for zero-inflation (> 0), shape `(O, B)`
+- `β_π`: Beta shape parameter for zero-inflation (> 0), shape `(O, B)`
+- `α_λ`: Gamma shape parameter for Poisson rate (> 0), shape `(O, B)`
+- `β_λ`: Gamma rate parameter for Poisson rate (> 0), shape `(O, B)`
+- `λ`: regularization weight (default: 1)
+"""
+function ziploss(y, α_π, β_π, α_λ, β_λ, λ = 1)
+    nll = nllzip(y, α_π, β_π, α_λ, β_λ)
+    ŷ = β_π ./ (α_π .+ β_π) .* α_λ ./ β_λ
+    reg = abs.(y .- ŷ) .* (α_π .+ β_π .+ α_λ)
+    return nll .+ λ .* reg
+end

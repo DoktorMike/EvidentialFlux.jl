@@ -270,6 +270,55 @@ end
 (a::BNB)(x::AbstractArray) = _reshape_call(a, x)
 
 """
+    ZIP(in => out, σ=NNlib.softplus; bias=true, init=Flux.glorot_uniform)
+    ZIP(W::AbstractMatrix, [bias, σ])
+
+Create a fully connected layer which implements a Zero-Inflated Poisson
+evidential model for count data with excess zeros. Places independent priors
+on the zero-inflation probability π ~ Beta(α_π, β_π) and the Poisson rate
+λ ~ Gamma(α_λ, β_λ), yielding a closed-form marginal likelihood that is a
+zero-inflated Negative Binomial.
+
+The output has shape `(out*4, batch...)` containing `[α_π, β_π, α_λ, β_λ]`
+stacked vertically, where all four are passed through `σ` to ensure positivity.
+
+Use with `ziploss` for training and `splitzip` / `split_params(ZIP, y)` to
+decompose the output. The predicted count is `E[Y] = β_π/(α_π+β_π) · α_λ/β_λ`.
+
+# Arguments:
+- `(in, out)`: number of input features and output count targets
+- `σ`: activation ensuring positivity (default: softplus)
+- `init`: weight initialisation function (default: `glorot_uniform`)
+- `bias`: whether to include a trainable bias vector
+"""
+struct ZIP{F, M <: AbstractMatrix, B} <: AbstractEvidentialLayer
+    W::M
+    b::B
+    σ::F
+    function ZIP(W::M, b = true, σ::F = NNlib.softplus) where {M <: AbstractMatrix, F}
+        b = Flux.create_bias(W, b, size(W, 1))
+        return new{F, M, typeof(b)}(W, b, σ)
+    end
+end
+
+function ZIP(
+        (in, out)::Pair{<:Integer, <:Integer}, σ = NNlib.softplus;
+        init = Flux.glorot_uniform, bias = true
+    )
+    return ZIP(init(out * 4, in), bias, σ)
+end
+
+Flux.@layer ZIP
+
+function (a::ZIP)(x::AbstractVecOrMat)
+    o = a.W * x .+ a.b
+    απ_raw, βπ_raw, αλ_raw, βλ_raw = _split_equal(o, 4)
+    return vcat(a.σ.(απ_raw), a.σ.(βπ_raw), a.σ.(αλ_raw), a.σ.(βλ_raw))
+end
+
+(a::ZIP)(x::AbstractArray) = _reshape_call(a, x)
+
+"""
     DIR(in => out; bias=true, init=Flux.glorot_uniform)
     DIR(W::AbstractMatrix, [bias])
 

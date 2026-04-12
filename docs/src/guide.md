@@ -9,7 +9,7 @@ Ask yourself: **what does my target variable look like?**
 
 - **Real numbers** (can be negative, zero, or positive) → [NIG](#Real-valued-targets-NIG) or [MVE](#Simple-variance-estimation-MVE)
 - **Strictly positive numbers** (always > 0) → [EG](#Positive-continuous-targets-EG)
-- **Counts** (0, 1, 2, ...) → [PG](#Count-targets-PG) or [BNB](#Overdispersed-count-targets-BNB)
+- **Counts** (0, 1, 2, ...) → [PG](#Count-targets-PG), [BNB](#Overdispersed-count-targets-BNB), or [ZIP](#Zero-inflated-count-targets-ZIP)
 - **One of K classes** → [DIR](#Classification-targets-DIR) or [FDIR](#Flexible-classification-FDIR)
 - **Counts per category** (multiple categories, totals vary) → [DIR + dirmultloss](#Count-vectors-across-categories)
 - **Proportions / success rates** (k successes out of n trials) → [BB](#Proportions-and-success-rates-BB)
@@ -166,6 +166,52 @@ end
 **When to use BNB vs PG:** If your data looks "clumpy" — lots of zeros and
 occasional large values — that's overdispersion, and BNB handles it better.
 If counts are relatively uniform around the mean, PG is simpler and sufficient.
+
+## Zero-inflated count targets — ZIP
+
+**Use when** your count data has more zeros than a standard Poisson or Negative
+Binomial can explain. Zero-inflation arises when there are two distinct
+data-generating processes: a "structural zero" process (the event can't happen)
+and a count process (the event can happen, and follows Poisson statistics).
+
+**Real-world examples:**
+- Number of insurance claims per customer (many customers never file)
+- Number of cigarettes smoked per day (many people are non-smokers)
+- Number of fish caught per trip (many trips yield nothing at all)
+- Number of doctor visits per year (many healthy people never go)
+- Number of defects per product (many products are defect-free)
+- Number of workplace accidents per month (most months are zero)
+
+**Layer:** `ZIP(in => out)` — predicts Beta parameters (α_π, β_π) for the
+zero-inflation probability π and Gamma parameters (α_λ, β_λ) for the Poisson
+rate λ.
+
+```julia
+model = Chain(Dense(10 => 64, relu), Dense(64 => 64, relu), ZIP(64 => 1))
+
+loss, grads = Flux.withgradient(model) do m
+    α_π, β_π, α_λ, β_λ = splitzip(m(x))
+    mean(ziploss(counts, α_π, β_π, α_λ, β_λ, 0.1))
+end
+
+r = predictive(model, x_test)
+r.ŷ          # expected count: E[1-π]·E[λ] = β_π/(α_π+β_π) · α_λ/β_λ
+r.epistemic  # Var[(1-π)λ]: uncertain about zero-inflation AND/OR rate
+r.aleatoric  # E[Var[Y|π,λ]]: inherent ZIP randomness
+```
+
+**When to use ZIP vs PG:** If your data has a suspicious spike at zero — more
+zeros than a Poisson model predicts — that's zero-inflation. A good diagnostic:
+if the observed fraction of zeros is much larger than `exp(-mean(y))` (the
+Poisson prediction), use ZIP. If zeros are roughly in line with the overall
+count rate, PG is sufficient.
+
+**When to use ZIP vs BNB:** Both handle excess zeros, but for different reasons.
+BNB explains excess zeros via overdispersion (high variance inflates the zero
+probability). ZIP explicitly models a separate zero-generating process. If your
+zeros come from a distinct subpopulation that simply *can't* produce events
+(non-smokers, non-customers), ZIP is the better structural match. If your zeros
+are just part of a highly variable count distribution, BNB may suffice.
 
 ## Classification targets — DIR
 
@@ -333,6 +379,7 @@ classification decision.
 | Positive regression | `EG` | `egloss` | β/(α-1) | Customer lifetime value |
 | Count regression | `PG` | `pgloss` | α/β | Emails per hour |
 | Overdispersed counts | `BNB` | `bnbloss` | r·α/β | Insurance claims |
+| Zero-inflated counts | `ZIP` | `ziploss` | β_π/(α_π+β_π)·α_λ/β_λ | Doctor visits per year |
 | Classification | `DIR` | `dirloss` | α/Σα | Image classification |
 | Calibrated classification | `FDIR` | `fdirloss` | (α+τp)/(Σα+τ) | Safety-critical AI |
 | Count vectors | `DIR` | `dirmultloss` | α/Σα | Bag-of-words NLP |
@@ -457,6 +504,7 @@ These all follow the same pattern: NLL + `λ · |error| · evidence`.
 | `egloss` | α (Gamma shape) | 0.01-0.1 |
 | `bnbloss` | α+β (Beta concentration) | 0.01-0.1 |
 | `bbloss` | α+β (Beta concentration) | 0.01-0.1 |
+| `ziploss` | α_π+β_π+α_λ (Beta + Gamma evidence) | 0.01-0.1 |
 
 Set `λ=0` to train with pure marginal NLL (no regularizer). This is a valid
 starting point — the marginal likelihood already balances fit and complexity.

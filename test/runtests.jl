@@ -11,6 +11,7 @@ using Test
     @test EG <: AbstractEvidentialLayer
     @test BB <: AbstractEvidentialLayer
     @test BNB <: AbstractEvidentialLayer
+    @test ZIP <: AbstractEvidentialLayer
 end
 
 @testset "EvidentialFlux.jl - Classification" begin
@@ -125,6 +126,20 @@ end
     @test all(>(0), α)
     @test all(>(0), β)
     @test size(r) == (nout, 10)
+end
+
+@testset "EvidentialFlux.jl - ZIP Count Regression" begin
+    ninp, nout = 3, 5
+    m = ZIP(ninp => nout)
+    x = randn(Float32, 3, 10)
+    ŷ = m(x)
+    @test size(ŷ) == (4 * nout, 10)
+    α_π, β_π, α_λ, β_λ = splitzip(ŷ)
+    @test all(>(0), α_π)
+    @test all(>(0), β_π)
+    @test all(>(0), α_λ)
+    @test all(>(0), β_λ)
+    @test size(α_π) == (nout, 10)
 end
 
 @testset "EvidentialFlux.jl - FDIR Classification" begin
@@ -302,6 +317,20 @@ end
     @test β2 == β
 end
 
+@testset "splitzip" begin
+    nout, batch = 3, 5
+    α_π = ones(Float32, nout, batch)
+    β_π = 2 * ones(Float32, nout, batch)
+    α_λ = 3 * ones(Float32, nout, batch)
+    β_λ = 4 * ones(Float32, nout, batch)
+    y = vcat(α_π, β_π, α_λ, β_λ)
+    α_π2, β_π2, α_λ2, β_λ2 = splitzip(y)
+    @test α_π2 == α_π
+    @test β_π2 == β_π
+    @test α_λ2 == α_λ
+    @test β_λ2 == β_λ
+end
+
 @testset "splitmve" begin
     nout, batch = 3, 5
     μ = ones(Float32, nout, batch)
@@ -321,6 +350,7 @@ end
     @test size(EG(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
     @test size(BB(3 => 2; bias = false)(randn(Float32, 3, 5))) == (4, 5)
     @test size(BNB(3 => 2; bias = false)(randn(Float32, 3, 5))) == (6, 5)
+    @test size(ZIP(3 => 2; bias = false)(randn(Float32, 3, 5))) == (8, 5)
     @test size(FDIR(3 => 2; bias = false)(randn(Float32, 3, 5))) == (5, 5)
 
     # 3D input (higher-dimensional reshape)
@@ -332,6 +362,7 @@ end
     @test size(EG(3 => 2)(x3d)) == (4, 4, 5)
     @test size(BB(3 => 2)(x3d)) == (4, 4, 5)
     @test size(BNB(3 => 2)(x3d)) == (6, 4, 5)
+    @test size(ZIP(3 => 2)(x3d)) == (8, 4, 5)
     @test size(FDIR(3 => 2)(x3d)) == (5, 4, 5)
 end
 
@@ -441,6 +472,33 @@ end
     @test epi_bnb[1] ≈ 2.0^2 * 3.0 * 7.0 / (4.0^2 * 3.0)
     # aleatoric = 2*3*7/(4*3) = 42/12 = 3.5
     @test ale_bnb[1] ≈ 2.0 * 3.0 * 7.0 / (4.0 * 3.0)
+
+    # ZIP: epistemic = Var[(1-π)λ], aleatoric = E[Var[Y|π,λ]]
+    α_π_zip = [2.0 3.0]
+    β_π_zip = [3.0 7.0]
+    α_λ_zip = [4.0 5.0]
+    β_λ_zip = [2.0 3.0]
+    epi_zip = epistemic(ZIP, α_π_zip, β_π_zip, α_λ_zip, β_λ_zip)
+    ale_zip = aleatoric(ZIP, α_π_zip, β_π_zip, α_λ_zip, β_λ_zip)
+    @test all(isfinite, epi_zip)
+    @test all(isfinite, ale_zip)
+    @test all(>(0), epi_zip)
+    @test all(>(0), ale_zip)
+    # manual check for first element: α_π=2, β_π=3, α_λ=4, β_λ=2
+    # S_π=5, E[1-π]=3/5, E[(1-π)²]=3·4/(5·6)=12/30=2/5, E[λ]=2, E[λ²]=4·5/4=5
+    # epistemic = 2/5·5 - (3/5·2)² = 2 - 36/25 = 50/25 - 36/25 = 14/25
+    @test epi_zip[1] ≈ 14.0 / 25.0
+    # E[π(1-π)]=2·3/(5·6)=6/30=1/5, aleatoric = 3/5·2 + 1/5·5 = 6/5 + 1 = 11/5
+    @test ale_zip[1] ≈ 11.0 / 5.0
+    # total = epistemic + aleatoric = Var[Y] (law of total variance)
+    @test epi_zip .+ ale_zip ≈ @. (
+        β_π_zip * (β_π_zip + 1) / ((α_π_zip + β_π_zip) * (α_π_zip + β_π_zip + 1)) *
+        α_λ_zip * (α_λ_zip + 1) / β_λ_zip^2 -
+        (β_π_zip / (α_π_zip + β_π_zip) * α_λ_zip / β_λ_zip)^2 +
+        β_π_zip / (α_π_zip + β_π_zip) * α_λ_zip / β_λ_zip +
+        α_π_zip * β_π_zip / ((α_π_zip + β_π_zip) * (α_π_zip + β_π_zip + 1)) *
+        α_λ_zip * (α_λ_zip + 1) / β_λ_zip^2
+    )
 
     # FDIR: epistemic and aleatoric, per sample
     K = 3
@@ -646,6 +704,46 @@ end
 
     # nllbnb sanity: uniform Beta(1,1), r=1, y=0 should give NLL = log(2)
     @test nllbnb(Float32[0;;], Float32[1;;], Float32[1;;], Float32[1;;]) ≈ Float32.(log(2) * ones(1, 1)) atol = 1.0f-5
+
+    # nllzip
+    nout_zip, batch_zip = 3, 5
+    y_counts_zip = Float32.(rand(0:10, nout_zip, batch_zip))
+    α_π_zip = abs.(randn(Float32, nout_zip, batch_zip)) .+ 0.5f0
+    β_π_zip = abs.(randn(Float32, nout_zip, batch_zip)) .+ 0.5f0
+    α_λ_zip = abs.(randn(Float32, nout_zip, batch_zip)) .+ 0.5f0
+    β_λ_zip = abs.(randn(Float32, nout_zip, batch_zip)) .+ 0.5f0
+    nll_zip = nllzip(y_counts_zip, α_π_zip, β_π_zip, α_λ_zip, β_λ_zip)
+    @test size(nll_zip) == (nout_zip, batch_zip)
+    @test all(isfinite, nll_zip)
+
+    # ziploss
+    zl = ziploss(y_counts_zip, α_π_zip, β_π_zip, α_λ_zip, β_λ_zip)
+    @test size(zl) == (nout_zip, batch_zip)
+    @test all(isfinite, zl)
+
+    # ziploss with λ=0 equals nllzip
+    @test ziploss(y_counts_zip, α_π_zip, β_π_zip, α_λ_zip, β_λ_zip, 0) ≈
+        nllzip(y_counts_zip, α_π_zip, β_π_zip, α_λ_zip, β_λ_zip)
+
+    # nllzip sanity: y=0, uniform Beta(1,1), Gamma(1,1)
+    # p(0) = 1/2 + 1/2·(1/2) = 3/4 → NLL = log(4/3)
+    @test nllzip(Float32[0;;], Float32[1;;], Float32[1;;], Float32[1;;], Float32[1;;]) ≈
+        Float32.(log(4 / 3) * ones(1, 1)) atol = 1.0f-5
+
+    # nllzip sanity: y=1, uniform Beta(1,1), Gamma(1,1)
+    # p(1) = 1/2 · NegBin(1|1,1) = 1/2 · 1/4 = 1/8 → NLL = log(8)
+    @test nllzip(Float32[1;;], Float32[1;;], Float32[1;;], Float32[1;;], Float32[1;;]) ≈
+        Float32.(log(8) * ones(1, 1)) atol = 1.0f-5
+
+    # nllzip with π→0 (β_π >> α_π) should approach nllpg
+    α_π_small = Float32[0.001;;]
+    β_π_large = Float32[1000.0;;]
+    α_λ_t = Float32[3.0;;]
+    β_λ_t = Float32[2.0;;]
+    for y_t in [Float32[0;;], Float32[3;;], Float32[7;;]]
+        @test nllzip(y_t, α_π_small, β_π_large, α_λ_t, β_λ_t) ≈
+            nllpg(y_t, α_λ_t, β_λ_t) atol = 0.01f0
+    end
 end
 
 @testset "predict" begin
@@ -725,6 +823,16 @@ end
     @test all(>(0), p_bnb.r)
     @test all(>(0), p_bnb.α)
     @test all(>(0), p_bnb.β)
+
+    # ZIP predict returns NamedTuple with α_π, β_π, α_λ, β_λ
+    m_zip = Chain(Dense(3 => 10, relu), ZIP(10 => 2))
+    p_zip = predict(m_zip, x)
+    @test p_zip isa NamedTuple{(:α_π, :β_π, :α_λ, :β_λ)}
+    @test size(p_zip.α_π) == (2, 5)
+    @test all(>(0), p_zip.α_π)
+    @test all(>(0), p_zip.β_π)
+    @test all(>(0), p_zip.α_λ)
+    @test all(>(0), p_zip.β_λ)
 end
 
 @testset "predictive" begin
@@ -771,6 +879,15 @@ end
     @test r_bnb.ŷ ≈ r_bnb.params.r .* r_bnb.params.α ./ r_bnb.params.β
     @test size(r_bnb.epistemic) == (2, 5)
     @test size(r_bnb.aleatoric) == (2, 5)
+
+    # ZIP: ŷ = β_π/(α_π+β_π) · α_λ/β_λ
+    m_zip = Chain(Dense(3 => 10, relu), ZIP(10 => 2))
+    r_zip = predictive(m_zip, x)
+    p_z = r_zip.params
+    @test r_zip.ŷ ≈ p_z.β_π ./ (p_z.α_π .+ p_z.β_π) .* p_z.α_λ ./ p_z.β_λ
+    @test all(>(0), r_zip.ŷ)
+    @test size(r_zip.epistemic) == (2, 5)
+    @test size(r_zip.aleatoric) == (2, 5)
 
     # DIR: ŷ = α/Σα, aleatoric is nothing
     m_dir = Chain(Dense(3 => 10, relu), DIR(10 => 4))
@@ -901,6 +1018,16 @@ end
     end
     @test isfinite(loss_bnb)
     @test !isnothing(grads_bnb[1])
+
+    # ziploss
+    y_counts_zip = Float32.(rand(0:10, 2, 5))
+    m_zip = Chain(Dense(3 => 10, relu), ZIP(10 => 2))
+    loss_zip, grads_zip = Flux.withgradient(m_zip) do m
+        α_π, β_π, α_λ, β_λ = splitzip(m(x))
+        sum(ziploss(y_counts_zip, α_π, β_π, α_λ, β_λ))
+    end
+    @test isfinite(loss_zip)
+    @test !isnothing(grads_zip[1])
 
     # mveloss
     m_mve = Chain(Dense(3 => 10, relu), MVE(10 => 2))

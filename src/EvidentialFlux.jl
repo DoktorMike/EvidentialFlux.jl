@@ -12,6 +12,7 @@ export PG
 export EG
 export BB
 export BNB
+export ZIP
 export DIR
 export MVE
 export FDIR
@@ -35,6 +36,8 @@ export nllbb
 export bbloss
 export nllbnb
 export bnbloss
+export nllzip
+export ziploss
 export mveloss
 export nllstudent
 
@@ -47,6 +50,7 @@ export splitpg
 export spliteg
 export splitbb
 export splitbnb
+export splitzip
 export uncertainty
 export aleatoric
 export epistemic

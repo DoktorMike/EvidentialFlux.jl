@@ -48,6 +48,9 @@ end
 split_params(::Type{<:BNB}, y) = let (r, α, β) = _split_equal(y, 3)
     (r = r, α = α, β = β)
 end
+split_params(::Type{<:ZIP}, y) = let (α_π, β_π, α_λ, β_λ) = _split_equal(y, 4)
+    (α_π = α_π, β_π = β_π, α_λ = α_λ, β_λ = β_λ)
+end
 split_params(::Type{<:MVE}, y) = let (μ, σ) = _split_equal(y, 2)
     (μ = μ, σ = σ)
 end
@@ -159,6 +162,20 @@ The input `y` should have shape `(nout*3, batch...)`.
 - `(r, α, β)`: tuple of arrays each with shape `(nout, batch...)`
 """
 splitbnb(y) = let p = split_params(BNB, y); (p.r, p.α, p.β) end
+
+"""
+    splitzip(y)
+
+Splits the concatenated output of a ZIP layer into its four components: α_π, β_π, α_λ, β_λ.
+The input `y` should have shape `(nout*4, batch...)`.
+
+# Arguments:
+- `y`: the concatenated ZIP output with shape `(nout*4, batch...)`
+
+# Returns:
+- `(α_π, β_π, α_λ, β_λ)`: tuple of arrays each with shape `(nout, batch...)`
+"""
+splitzip(y) = let p = split_params(ZIP, y); (p.α_π, p.β_π, p.α_λ, p.β_λ) end
 
 """
     uncertainty(ν, α, β)
@@ -382,6 +399,44 @@ function aleatoric(::Type{<:BNB}, r, α, β)
 end
 
 """
+    epistemic(::Type{<:ZIP}, α_π, β_π, α_λ, β_λ)
+
+Epistemic uncertainty for the Zero-Inflated Poisson model: the variance of the
+conditional mean `E[Y|π,λ] = (1-π)λ` under the independent Beta and Gamma priors.
+
+    Var[(1-π)λ] = E[(1-π)²]E[λ²] - (E[1-π])²(E[λ])²
+
+where `E[(1-π)²] = β_π(β_π+1) / (S_π(S_π+1))` and `E[λ²] = α_λ(α_λ+1)/β_λ²`.
+"""
+function epistemic(::Type{<:ZIP}, α_π, β_π, α_λ, β_λ)
+    S_π = α_π .+ β_π
+    E_1mπ = β_π ./ S_π
+    E_1mπ² = β_π .* (β_π .+ 1) ./ (S_π .* (S_π .+ 1))
+    E_λ = α_λ ./ β_λ
+    E_λ² = α_λ .* (α_λ .+ 1) ./ β_λ .^ 2
+    return @. E_1mπ² * E_λ² - (E_1mπ * E_λ)^2
+end
+
+"""
+    aleatoric(::Type{<:ZIP}, α_π, β_π, α_λ, β_λ)
+
+Aleatoric uncertainty for the Zero-Inflated Poisson model: the expected
+variance of the ZIP observation given the parameters.
+
+    E[Var[Y|π,λ]] = E[1-π]·E[λ] + E[π(1-π)]·E[λ²]
+
+where `E[π(1-π)] = α_π β_π / (S_π(S_π+1))`.
+"""
+function aleatoric(::Type{<:ZIP}, α_π, β_π, α_λ, β_λ)
+    S_π = α_π .+ β_π
+    E_1mπ = β_π ./ S_π
+    E_π1mπ = α_π .* β_π ./ (S_π .* (S_π .+ 1))
+    E_λ = α_λ ./ β_λ
+    E_λ² = α_λ .* (α_λ .+ 1) ./ β_λ .^ 2
+    return @. E_1mπ * E_λ + E_π1mπ * E_λ²
+end
+
+"""
     epistemic(::Type{<:FDIR}, α, p, τ)
 
 Epistemic uncertainty for the Flexible Dirichlet model (Yoon & Kim 2025).
@@ -452,6 +507,7 @@ function predictive_mean(::Type{<:EG}, p)
     return p.β ./ (α_c .- 1)
 end
 predictive_mean(::Type{<:BNB}, p) = p.r .* p.α ./ p.β
+predictive_mean(::Type{<:ZIP}, p) = p.β_π ./ (p.α_π .+ p.β_π) .* p.α_λ ./ p.β_λ
 predictive_mean(::Type{<:DIR}, α, n = 1) = n .* α ./ sum(α, dims = 1)
 predictive_mean(::Type{<:FDIR}, p, n = 1) = n .* (p.α .+ p.τ .* p.p) ./ (sum(p.α, dims = 1) .+ p.τ)
 predictive_mean(::Type{<:MVE}, p) = p.μ
@@ -518,6 +574,14 @@ function predictive(::Type{T}, m, x) where {T <: BNB}
     return (ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.r, p.α, p.β),
         aleatoric = aleatoric(T, p.r, p.α, p.β),
+        params = p)
+end
+
+function predictive(::Type{T}, m, x) where {T <: ZIP}
+    p = predict(T, m, x)
+    return (ŷ = predictive_mean(T, p),
+        epistemic = epistemic(T, p.α_π, p.β_π, p.α_λ, p.β_λ),
+        aleatoric = aleatoric(T, p.α_π, p.β_π, p.α_λ, p.β_λ),
         params = p)
 end
 
