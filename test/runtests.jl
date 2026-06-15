@@ -1,5 +1,6 @@
 using EvidentialFlux
 using Flux
+using Random
 using Test
 
 @testset "AbstractEvidentialLayer" begin
@@ -172,6 +173,45 @@ end
     @test size(α) == (nclasses, 10)
     @test size(p) == (nclasses, 10)
     @test size(τ) == (1, 10)
+end
+
+@testset "EvidentialFlux.jl - FDIR Ordinal bimodal recovery" begin
+    # ofdirloss must let FDIR fit a bimodal (U-shaped) ordinal conditional —
+    # something a structurally unimodal model (e.g. Beta-Binomial) cannot do.
+    rng = MersenneTwister(1)
+    K = 5
+    pA = Float32[0.45, 0.03, 0.04, 0.03, 0.45]   # bimodal: mass at both extremes
+    pB = Float32[0.0, 0.05, 0.05, 0.2, 0.7]   # unimodal, concentrated high
+    sampcat(pr) = findfirst(cumsum(pr) .>= rand(rng))
+    N = 1500
+    g = rand(rng, Bool, N)
+    X = Float32.(vcat(g', .!g'))                  # 2×N one-hot group indicator
+    labels = [g[i] ? sampcat(pB) : sampcat(pA) for i in 1:N]
+    Y = zeros(Float32, K, N)
+    for i in 1:N
+        Y[labels[i], i] = 1
+    end
+
+    model = Chain(Dense(2 => 32, relu), Dense(32 => 32, relu), FDIR(32 => K))
+    opt = Flux.setup(Flux.Adam(0.01), model)
+    for _ in 1:2000
+        gs = gradient(model) do mdl
+            a, p, τ = splitfdir(mdl(X))
+            sum(ofdirloss(Y, a, p, τ)) / N
+        end
+        Flux.update!(opt, model, gs[1])
+    end
+
+    fdmean(pr) = vec((pr.α .+ pr.τ .* pr.p) ./ (sum(pr.α, dims = 1) .+ pr.τ))
+    μA = fdmean(predict(model, reshape(Float32[0.0; 1.0], 2, 1)))   # bimodal group
+    μB = fdmean(predict(model, reshape(Float32[1.0; 0.0], 2, 1)))   # unimodal group
+
+    # Bimodal group: both extremes carry real mass, the middle is suppressed
+    @test min(μA[1], μA[K]) > μA[3]
+    @test μA[1] > 0.3 && μA[K] > 0.3
+    # Unimodal group: mass concentrated high, top level dominates the bottom
+    @test μB[K] > μB[1]
+    @test argmax(μB) == K
 end
 
 @testset "splitnig" begin
@@ -521,11 +561,11 @@ end
     # total = epistemic + aleatoric = Var[Y] (law of total variance)
     @test epi_zip .+ ale_zip ≈ @. (
         β_π_zip * (β_π_zip + 1) / ((α_π_zip + β_π_zip) * (α_π_zip + β_π_zip + 1)) *
-        α_λ_zip * (α_λ_zip + 1) / β_λ_zip^2 -
-        (β_π_zip / (α_π_zip + β_π_zip) * α_λ_zip / β_λ_zip)^2 +
-        β_π_zip / (α_π_zip + β_π_zip) * α_λ_zip / β_λ_zip +
-        α_π_zip * β_π_zip / ((α_π_zip + β_π_zip) * (α_π_zip + β_π_zip + 1)) *
-        α_λ_zip * (α_λ_zip + 1) / β_λ_zip^2
+            α_λ_zip * (α_λ_zip + 1) / β_λ_zip^2 -
+            (β_π_zip / (α_π_zip + β_π_zip) * α_λ_zip / β_λ_zip)^2 +
+            β_π_zip / (α_π_zip + β_π_zip) * α_λ_zip / β_λ_zip +
+            α_π_zip * β_π_zip / ((α_π_zip + β_π_zip) * (α_π_zip + β_π_zip + 1)) *
+            α_λ_zip * (α_λ_zip + 1) / β_λ_zip^2
     )
 
     # VM: epistemic = 1 - I₁(κ₀)/I₀(κ₀), aleatoric = 1 - I₁(κ)/I₀(κ)
@@ -675,6 +715,33 @@ end
     brier_reg = sum((y_eq .- p_eq) .^ 2, dims = 1)
     fd_evid = fd_total .- brier_reg
     @test fd_evid ≈ dir_evid
+
+    # ofdirloss — ordinal (cumulative/RPS) loss for FDIR
+    ol = ofdirloss(y_oh_fd, α_fd, p_fd, τ_fd)
+    @test size(ol) == (1, 5)
+    @test all(isfinite, ol)
+    @test all(≥(0), ol)
+    # class weighting scales each sample by its true-class weight
+    w_ord = Float32[1.0, 2.0, 0.5]
+    ol_w = ofdirloss(y_oh_fd, α_fd, p_fd, τ_fd; weights = w_ord)
+    @test ol_w ≈ ofdirloss(y_oh_fd, α_fd, p_fd, τ_fd) .*
+        sum(y_oh_fd .* reshape(w_ord, :, 1), dims = 1)
+    # ordinality: same predicted dist, target farther in rank ⇒ larger loss
+    α_ord = Float32.([3.0; 2.0; 1.0][:, :] .* ones(Float32, 1, 1))  # (3,1)
+    p_ord = Float32.([0.6; 0.3; 0.1][:, :])
+    τ_ord = ones(Float32, 1, 1)
+    y_near = Float32.([1.0; 0.0; 0.0][:, :])   # true class 1, pred mass near class 1
+    y_far = Float32.([0.0; 0.0; 1.0][:, :])    # true class 3, far from pred mass
+    @test only(ofdirloss(y_far, α_ord, p_ord, τ_ord)) >
+        only(ofdirloss(y_near, α_ord, p_ord, τ_ord))
+    # reduction: τ=1, p=α/Σα ⇒ expected RPS equals Dirichlet cumulative Bayes-risk MSE
+    S_ord = sum(α_eq, dims = 1)
+    M_cum = cumsum(α_eq ./ S_ord, dims = 1)
+    T_cum = cumsum(y_eq, dims = 1)
+    dir_rps = sum((T_cum .- M_cum) .^ 2 .+ M_cum .* (1 .- M_cum) ./ (S_ord .+ 1), dims = 1)
+    ofd_total = ofdirloss(y_eq, α_eq, p_eq, τ_one)
+    ofd_reg = sum((T_cum .- cumsum(p_eq, dims = 1)) .^ 2, dims = 1)
+    @test (ofd_total .- ofd_reg) ≈ dir_rps
 
     # nllpg
     nout_pg, batch_pg = 3, 5

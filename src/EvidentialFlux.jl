@@ -30,6 +30,7 @@ export dirloss_cor
 export dirloss2  # deprecated alias for dirloss_cor
 export dirmultloss
 export fdirloss
+export ofdirloss
 export nllpg
 export pgloss
 export nlleg

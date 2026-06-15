@@ -18,8 +18,8 @@ using Pkg; Pkg.add(url="https://github.com/DoktorMike/EvidentialFlux.jl")
 ## Features
 
 EvidentialFlux provides evidential output layers for regression, classification,
-and count data. All layers are subtypes of `AbstractEvidentialLayer`, which
-provides generic `predict` and `split_params` dispatch.
+ordinal, and count data. All layers are subtypes of `AbstractEvidentialLayer`,
+which provides generic `predict` and `split_params` dispatch.
 
 | Layer | Use case | Output | Uncertainty |
 |-------|----------|--------|-------------|
@@ -31,8 +31,11 @@ provides generic `predict` and `split_params` dispatch.
 | `ZIP(in => out)` | Zero-inflated count regression | α_π, β_π, α_λ, β_λ (4 × out) | Aleatoric + epistemic |
 | `VM(in => out)` | Directional/circular regression | μ₀, κ₀, κ (3 × out) | Aleatoric + epistemic |
 | `DIR(in => out)` | Classification | Dirichlet concentrations (out) | Epistemic |
-| `FDIR(in => out)` | Classification | α, p, τ (2 × out + 1) | Aleatoric + epistemic |
+| `FDIR(in => out)` | Classification / ordinal | α, p, τ (2 × out + 1) | Aleatoric + epistemic |
 | `MVE(in => out)` | Regression | μ, σ (2 × out) | Aleatoric |
+
+Ordinal targets (ordered classes) reuse the `DIR`/`FDIR` layer with an
+order-aware loss (`ofdirloss`) — see [Evidential ordinal regression](#evidential-ordinal-regression-fdir).
 
 ### Loss functions
 
@@ -45,6 +48,7 @@ provides generic `predict` and `split_params` dispatch.
 | `dirloss_cor(y, α, t)` | Dirichlet loss + correct evidence regularization (Pandey et al. 2025) |
 | `dirmultloss(y, α)` | Dirichlet-Multinomial NLL for count vector targets (reuses `DIR` layer) |
 | `fdirloss(y, α, p, τ)` | Flexible Dirichlet loss (Yoon & Kim 2025) |
+| `ofdirloss(y, α, p, τ; weights)` | Ordinal Flexible Dirichlet loss — expected Ranked Probability Score; optional per-class weights for imbalance |
 | `pgloss(y, α, β, λ)` | Poisson-Gamma count regression loss (NLL + regularizer) |
 | `egloss(y, α, β, λ)` | Exponential-Gamma positive regression loss (NLL + regularizer) |
 | `bbloss(k, n, α, β, λ)` | Binomial-Beta proportion estimation loss (NLL + regularizer) |
@@ -200,6 +204,43 @@ r.ŷ          # class probabilities
 r.epistemic  # high for out-of-distribution inputs
 ```
 
+### Evidential ordinal regression (FDIR)
+
+When the `K` classes have a natural order (Very Low < Low < … < Very High),
+reuse the `FDIR` layer with `ofdirloss`. The loss scores the *cumulative*
+distribution (expected Ranked Probability Score under the Flexible Dirichlet),
+so predicting a level far in rank from the truth costs more than a near one.
+Because `FDIR` is a mixture of Dirichlets it also represents **bimodal** ordinal
+conditionals — mass piled at both extremes with a dip in the middle — which
+structurally unimodal ordinal models (Beta-Binomial, CORAL) cannot.
+
+```julia
+model = Chain(Dense(nfeat => 64, relu), Dense(64 => 64, relu), FDIR(64 => 5))
+opt_state = Flux.setup(AdamW(1e-2), model)
+
+# Optional: per-class weights (length K) to counter class imbalance.
+# Use inverse class frequency; each sample is scaled by its true-class weight.
+weights = Float32.(1 ./ (classfreq .+ 1f-3))
+
+for epoch in 1:1000
+    loss, grads = Flux.withgradient(model) do m
+        α, p, τ = splitfdir(m(x))
+        sum(ofdirloss(y_onehot, α, p, τ; weights)) / size(x, 2)
+    end
+    Flux.update!(opt_state, model, grads[1])
+end
+
+r = predictive(model, x_test)
+r.ŷ          # per-level probability vector (K × B)
+r.aleatoric  # data ambiguity (high where the conditional is bimodal)
+r.epistemic  # model uncertainty
+
+# Point ordinal level = expectation over levels (report the full r.ŷ for
+# bimodal conditionals — the expected level can land on a rare middle class).
+levels = Float32.(0:(size(r.ŷ, 1) - 1))
+ŷ_level = sum(levels .* r.ŷ, dims = 1)
+```
+
 ### Mean-variance estimation (MVE)
 
 ```julia
@@ -243,6 +284,7 @@ The [examples/](examples/) folder contains complete working examples:
 - [regression3.jl](examples/regression3.jl) -- NIG with LayerNorm and evidence tracking
 - [regression4.jl](examples/regression4.jl) -- MVE with parameter freezing/thawing
 - [classification.jl](examples/classification.jl) -- DIR for multi-class classification
+- [ordinal.jl](examples/ordinal.jl) -- FDIR with `ofdirloss` for ordinal targets, incl. bimodal conditionals
 
 ## GPU support
 

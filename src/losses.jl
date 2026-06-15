@@ -314,6 +314,68 @@ function fdirloss(y, α, p, τ)
 end
 
 """
+    ofdirloss(y, α, p, τ; weights = nothing)
+
+Ordinal loss for the Flexible Dirichlet EDL model (`FDIR` layer), for targets
+whose `K` classes have a natural order (e.g. Very Low < Low < … < Very High).
+
+Where `fdirloss` scores class probabilities against a one-hot target (treating
+all wrong classes as equally wrong), `ofdirloss` scores the *cumulative*
+distribution. It is the expected **Ranked Probability Score** (squared
+earth-mover distance) under the Flexible Dirichlet:
+
+    ℒ = Σₖ E_FD[(Πₖ - Tₖ)²] + Σₖ (Tₖ - Pₖ)²
+
+where `Πₖ = Σ_{l≤k} πₗ` is the (random) cumulative probability through level `k`,
+`Tₖ = Σ_{l≤k} yₗ` is the target step CDF, and `Pₖ = Σ_{l≤k} pₗ` is the cumulative
+allocation probability (the regularizer). Because errors are measured on the CDF,
+predicting a level far in rank from the truth costs more than a near one — the
+order-awareness that distinguishes this from `fdirloss`. The FD reduces to a
+single Dirichlet when τ=1 and `pₖ = αₖ/Σα`, so this is the ordinal analogue of a
+Dirichlet RPS.
+
+The first term is closed-form. With `S = Σαₖ + τ`, `Aₖ = Σ_{l≤k} αₗ`,
+`Pₖ = Σ_{l≤k} pₗ`:
+
+    E[Πₖ]  = (Aₖ + τPₖ) / S
+    E[Πₖ²] = [Pₖ(Aₖ+τ)(Aₖ+τ+1) + (1-Pₖ)Aₖ(Aₖ+1)] / (S(S+1))
+
+generalizing the per-class `Eπ²` of `fdirloss` to the cumulative sets `{0,…,k}`.
+
+# Arguments:
+- `y`: one-hot encoded targets, shape `(K, B)`, classes ordered along dim 1
+- `α`: Gamma concentration parameters (> 0) from an FDIR layer, shape `(K, B)`
+- `p`: allocation probabilities (Σp = 1) from an FDIR layer, shape `(K, B)`
+- `τ`: shared dispersion parameter (> 0) from an FDIR layer, shape `(1, B)`
+- `weights`: optional per-class weights, length `K`. Each sample's loss is
+  scaled by the weight of its true class — use the inverse class frequency to
+  counter imbalance (e.g. a dominant high level). `nothing` means no weighting.
+
+Returns shape `(1, B)` — one loss per batch element.
+"""
+function ofdirloss(y, α, p, τ; weights = nothing)
+    S = sum(α, dims = 1) .+ τ                                          # (1, B)
+    Acum = cumsum(α, dims = 1)                                         # (K, B) cumulative α
+    Pcum = cumsum(p, dims = 1)                                         # (K, B) cumulative p
+    Tcum = cumsum(y, dims = 1)                                         # (K, B) target CDF
+    M = (Acum .+ τ .* Pcum) ./ S                                      # E[Πₖ]
+    EΠ² = (
+        Pcum .* (Acum .+ τ) .* (Acum .+ τ .+ 1) .+
+            (1 .- Pcum) .* Acum .* (Acum .+ 1)
+    ) ./ (S .* (S .+ 1))        # E[Πₖ²]
+    # Expected cumulative Brier per threshold; Tₖ²=Tₖ since Tₖ∈{0,1}
+    crps = sum(EΠ² .- 2 .* Tcum .* M .+ Tcum, dims = 1)               # (1, B)
+    reg = sum((Tcum .- Pcum) .^ 2, dims = 1)                          # (1, B) cumulative Brier on p
+    loss = crps .+ reg
+    if weights !== nothing
+        w = reshape(weights, :, 1)
+        sw = sum(y .* w, dims = 1)                                     # (1, B) true-class weight
+        loss = loss .* sw
+    end
+    return loss
+end
+
+"""
     nllpg(y, α, β)
 
 Negative log-likelihood of the Negative Binomial marginal obtained by

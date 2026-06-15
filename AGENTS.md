@@ -8,6 +8,41 @@ conjugate prior distributions, enabling uncertainty quantification (aleatoric
 and epistemic) in a single forward pass. The package supports regression,
 classification, and count data.
 
+## Commands
+
+```bash
+# Run full CPU test suite
+julia --project -e 'using Pkg; Pkg.test()'
+
+# Run a single testset: edit test/runtests.jl, or include it in a loaded REPL
+julia --project -e 'using EvidentialFlux, Test; include("test/runtests.jl")'
+
+# Format code in place (Runic, via `julia -m Runic`)
+make format
+# Check formatting without writing (non-zero exit + diff if unformatted)
+make formatcheck
+
+# REPL with package loaded
+julia --project -e 'using EvidentialFlux'
+```
+
+There is no separate lint step — formatting is the check. Tests run via the
+`[targets] test` config in `Project.toml` (Test + CUDA). `test/gpu.jl` is
+included automatically only when `CUDA.functional()` is true, so the GPU suite
+is skipped on machines without a working GPU.
+
+## Releases
+
+Versioning is driven by Conventional Commits via `standard-version`. Use the
+Makefile targets — they bump `version` in `Project.toml`, commit, then tag:
+
+```bash
+make releasepatch   # or releaseminor / releasemajor
+```
+
+`bump.sh <major|minor|patch>` is the underlying script. `.versionrc` controls
+which commit types appear in `CHANGELOG.md`.
+
 ## Architecture
 
 ### Source layout
@@ -86,6 +121,21 @@ The same pattern applies to all layers:
 - **FDIR**: Categorical likelihood, Flexible Dirichlet prior, mixture of Dir-Multinomial
 - **MVE**: Normal likelihood, point estimate (no prior)
 
+#### Ordinal targets
+
+For *ordered* categories (e.g. Very Low < … < Very High), reuse the `DIR` or
+`FDIR` layer — the layer is unchanged; order-awareness lives in the loss.
+`ofdirloss(y, α, p, τ; weights)` is the ordinal loss for `FDIR`: it is the
+expected **Ranked Probability Score** (squared earth-mover distance) under the
+Flexible Dirichlet, scoring the cumulative CDF instead of the one-hot vector so
+rank-distant errors cost more. It reduces to the Dirichlet cumulative
+Bayes-risk MSE when τ=1 and `pₖ = αₖ/Σα` (ordinal analogue of `fdirloss`'s
+Theorem 4.3 reduction). The `weights` kwarg (length `K`, per-class) scales each
+sample by its true-class weight — use inverse class frequency to counter
+imbalance. Because `FDIR` is a mixture of Dirichlets it represents **bimodal**
+ordinal conditionals (mass at both extremes), which structurally unimodal models
+(Beta-Binomial, CORAL) cannot.
+
 ### Uncertainty API
 
 Two patterns coexist:
@@ -118,8 +168,8 @@ the data-space point prediction from raw parameters.
 
 - Regression losses (`nigloss*`, `mveloss`, `pgloss`, `bnbloss`): return
   `(O, B)` — one value per output per batch element
-- Classification losses (`dirloss*`, `dirmultloss`, `fdirloss`): return
-  `(1, B)` — one value per batch element (summed over classes)
+- Classification losses (`dirloss*`, `dirmultloss`, `fdirloss`, `ofdirloss`):
+  return `(1, B)` — one value per batch element (summed over classes)
 
 ### GPU compatibility
 
@@ -135,4 +185,5 @@ No CUDA-specific code exists; compatibility comes from using `AbstractMatrix`,
 - `split_params` returns NamedTuples; convenience `split*` functions return plain tuples
 - `predict` returns NamedTuples for all layers except DIR (raw array for backward compat)
 - Tests verify shapes, finiteness, value constraints, gradient flow, and (where applicable) known analytical results
-- Run tests with `julia --project -e 'using Pkg; Pkg.test()'`
+- GPU compatibility comes from `AbstractMatrix`/`AbstractVecOrMat` and broadcasts — no CUDA-specific code; keep it that way
+- Several exports are deprecated aliases (`nigloss2`→`nigloss_scaled`, `nigloss3`→`nigloss_ureg`, `dirloss2`→`dirloss_cor`); don't add new uses
