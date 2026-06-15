@@ -18,4 +18,7 @@ releasepatch:
 	bump.sh patch
 
 format:
-	julia --project=. -e "using JuliaFormatter, EvidentialFlux; format(joinpath(dirname(pathof(EvidentialFlux)), \"..\"))"
+	julia -m Runic --inplace src test
+
+formatcheck:
+	julia -m Runic --check --diff src test

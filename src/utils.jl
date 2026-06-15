@@ -79,7 +79,9 @@ output neurons.
 # Returns:
 - `(γ, ν, α, β)`: tuple of arrays each with shape `(nout, batch...)`
 """
-splitnig(y) = let p = split_params(NIG, y); (p.γ, p.ν, p.α, p.β) end
+splitnig(y) = let p = split_params(NIG, y)
+    (p.γ, p.ν, p.α, p.β)
+end
 
 """
     splitmve(y)
@@ -94,7 +96,9 @@ output neurons.
 # Returns:
 - `(μ, σ)`: tuple of arrays each with shape `(nout, batch...)`
 """
-splitmve(y) = let p = split_params(MVE, y); (p.μ, p.σ) end
+splitmve(y) = let p = split_params(MVE, y)
+    (p.μ, p.σ)
+end
 
 """
     splitfdir(y)
@@ -108,7 +112,9 @@ The input `y` should have shape `(K*2 + 1, batch...)` where `K` is the number of
 # Returns:
 - `(α, p, τ)`: tuple where α and p have shape `(K, batch...)` and τ has shape `(1, batch...)`
 """
-splitfdir(y) = let r = split_params(FDIR, y); (r.α, r.p, r.τ) end
+splitfdir(y) = let r = split_params(FDIR, y)
+    (r.α, r.p, r.τ)
+end
 
 """
     splitpg(y)
@@ -122,7 +128,9 @@ The input `y` should have shape `(nout*2, batch...)`.
 # Returns:
 - `(α, β)`: tuple of arrays each with shape `(nout, batch...)`
 """
-splitpg(y) = let p = split_params(PG, y); (p.α, p.β) end
+splitpg(y) = let p = split_params(PG, y)
+    (p.α, p.β)
+end
 
 """
     spliteg(y)
@@ -136,7 +144,9 @@ The input `y` should have shape `(nout*2, batch...)`.
 # Returns:
 - `(α, β)`: tuple of arrays each with shape `(nout, batch...)`
 """
-spliteg(y) = let p = split_params(EG, y); (p.α, p.β) end
+spliteg(y) = let p = split_params(EG, y)
+    (p.α, p.β)
+end
 
 """
     splitbb(y)
@@ -150,7 +160,9 @@ The input `y` should have shape `(nout*2, batch...)`.
 # Returns:
 - `(α, β)`: tuple of arrays each with shape `(nout, batch...)`
 """
-splitbb(y) = let p = split_params(BB, y); (p.α, p.β) end
+splitbb(y) = let p = split_params(BB, y)
+    (p.α, p.β)
+end
 
 """
     splitbnb(y)
@@ -164,7 +176,9 @@ The input `y` should have shape `(nout*3, batch...)`.
 # Returns:
 - `(r, α, β)`: tuple of arrays each with shape `(nout, batch...)`
 """
-splitbnb(y) = let p = split_params(BNB, y); (p.r, p.α, p.β) end
+splitbnb(y) = let p = split_params(BNB, y)
+    (p.r, p.α, p.β)
+end
 
 """
     splitzip(y)
@@ -178,7 +192,9 @@ The input `y` should have shape `(nout*4, batch...)`.
 # Returns:
 - `(α_π, β_π, α_λ, β_λ)`: tuple of arrays each with shape `(nout, batch...)`
 """
-splitzip(y) = let p = split_params(ZIP, y); (p.α_π, p.β_π, p.α_λ, p.β_λ) end
+splitzip(y) = let p = split_params(ZIP, y)
+    (p.α_π, p.β_π, p.α_λ, p.β_λ)
+end
 
 """
     splitvm(y)
@@ -192,7 +208,9 @@ The input `y` should have shape `(nout*3, batch...)`.
 # Returns:
 - `(μ₀, κ₀, κ)`: tuple of arrays each with shape `(nout, batch...)`
 """
-splitvm(y) = let p = split_params(VM, y); (p.μ₀, p.κ₀, p.κ) end
+splitvm(y) = let p = split_params(VM, y)
+    (p.μ₀, p.κ₀, p.κ)
+end
 
 """
     uncertainty(ν, α, β)
@@ -590,80 +608,100 @@ predictive(m, x) = predictive(last_type(m), m, x)
 
 function predictive(::Type{T}, m, x) where {T <: NIG}
     p = predict(T, m, x)
-    return (ŷ = predictive_mean(T, p),
+    return (
+        ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.ν, p.α, p.β),
         aleatoric = aleatoric(T, p.ν, p.α, p.β),
-        params = p)
+        params = p,
+    )
 end
 
 function predictive(::Type{T}, m, x) where {T <: BB}
     p = predict(T, m, x)
-    return (ŷ = predictive_mean(T, p),
+    return (
+        ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.α, p.β),
         aleatoric = aleatoric(T, p.α, p.β),
-        params = p)
+        params = p,
+    )
 end
 
 function predictive(::Type{T}, m, x) where {T <: EG}
     p = predict(T, m, x)
-    return (ŷ = predictive_mean(T, p),
+    return (
+        ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.α, p.β),
         aleatoric = aleatoric(T, p.α, p.β),
-        params = p)
+        params = p,
+    )
 end
 
 function predictive(::Type{T}, m, x) where {T <: PG}
     p = predict(T, m, x)
-    return (ŷ = predictive_mean(T, p),
+    return (
+        ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.α, p.β),
         aleatoric = aleatoric(T, p.α, p.β),
-        params = p)
+        params = p,
+    )
 end
 
 function predictive(::Type{T}, m, x) where {T <: BNB}
     p = predict(T, m, x)
-    return (ŷ = predictive_mean(T, p),
+    return (
+        ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.r, p.α, p.β),
         aleatoric = aleatoric(T, p.r, p.α, p.β),
-        params = p)
+        params = p,
+    )
 end
 
 function predictive(::Type{T}, m, x) where {T <: ZIP}
     p = predict(T, m, x)
-    return (ŷ = predictive_mean(T, p),
+    return (
+        ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.α_π, p.β_π, p.α_λ, p.β_λ),
         aleatoric = aleatoric(T, p.α_π, p.β_π, p.α_λ, p.β_λ),
-        params = p)
+        params = p,
+    )
 end
 
 function predictive(::Type{T}, m, x) where {T <: VM}
     p = predict(T, m, x)
-    return (ŷ = predictive_mean(T, p),
+    return (
+        ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.κ₀),
         aleatoric = aleatoric(T, p.κ),
-        params = p)
+        params = p,
+    )
 end
 
 function predictive(::Type{T}, m, x) where {T <: DIR}
     α = predict(T, m, x)
-    return (ŷ = predictive_mean(T, α),
+    return (
+        ŷ = predictive_mean(T, α),
         epistemic = epistemic(T, α),
         aleatoric = nothing,
-        params = α)
+        params = α,
+    )
 end
 
 function predictive(::Type{T}, m, x) where {T <: FDIR}
     p = predict(T, m, x)
-    return (ŷ = predictive_mean(T, p),
+    return (
+        ŷ = predictive_mean(T, p),
         epistemic = epistemic(T, p.α, p.p, p.τ),
         aleatoric = aleatoric(T, p.α, p.p, p.τ),
-        params = p)
+        params = p,
+    )
 end
 
 function predictive(::Type{T}, m, x) where {T <: MVE}
     p = predict(T, m, x)
-    return (ŷ = predictive_mean(T, p),
+    return (
+        ŷ = predictive_mean(T, p),
         epistemic = nothing,
         aleatoric = aleatoric(T, p.σ),
-        params = p)
+        params = p,
+    )
 end
